@@ -2,7 +2,7 @@
 // Sab AI calls yahan se jayenge — Supabase Edge Function ke through
 import { supabase } from './supabase'
 
-export async function callAI({ system, messages, max_tokens = 1500 }) {
+export async function callAI({ system, messages, max_tokens = 4000 }) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     
