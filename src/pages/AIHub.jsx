@@ -116,23 +116,48 @@ Frontend/Backend/Database/AI/Deploy
 ## 🛠️ Fixes
 ## 💡 Top 3 Recommendations`,
 
-    'pitch': `You are a world-class presentation designer. Create a professional PowerPoint as JSON.
+    'pitch': `You are a world-class presentation designer. Create a COMPLETE professional PowerPoint as JSON.
 
 TOPIC: As given by user.
 
-RULES:
+CRITICAL RULES:
 1. Detect field: education, business, medical, technology, finance, environment, law, psychology, arts, science
-2. Choose 8-10 slides with VARIED layouts
-3. Each bullet: minimum 10 words, specific and expert-level
-4. Use real stats, real examples, real names
-5. Never use " inside string values — use apostrophes only
-6. Return ONLY raw JSON — no markdown, no backticks, no explanation
+2. Choose 8-12 slides — EVERY slide must have FULL content, NO empty arrays
+3. VARY layouts across slides — do NOT repeat same layout consecutively
+4. Each bullet point: minimum 12 words, specific, expert-level with real data
+5. Use REAL statistics, REAL names, REAL examples specific to the topic
+6. NEVER use double quotes inside strings — use apostrophes only
+7. Return ONLY raw JSON — no markdown, no backticks, no text before or after
+8. ALL array fields must have content — left_bullets, right_bullets, cards, steps, left_items, right_items, stats MUST be filled
 
-LAYOUTS available:
-title, bullets, two_column, three_cards, big_stat, comparison, timeline, quote_focus, checklist, case_study, closing
+LAYOUT RULES — fill ALL fields for chosen layout:
 
-JSON FORMAT (copy this structure exactly):
-{"title":"Presentation Title","theme":"medical","slides":[{"layout":"title","heading":"Title Here","subheading":"Subtitle here","bullets":["Point one","Point two","Point three"]},{"layout":"bullets","heading":"Slide Title","subheading":"Context","bullets":["Detailed point 1 with at least ten words minimum","Detailed point 2 with at least ten words minimum","Detailed point 3 with at least ten words minimum","Detailed point 4 with at least ten words minimum"]},{"layout":"big_stat","heading":"Key Numbers","stats":[{"number":"463M","label":"People affected worldwide","context":"Source: IDF 2021"},{"number":"77M","label":"Cases in India","context":"Second highest globally"},{"number":"50%","label":"Go undiagnosed","context":"WHO Report 2022"}],"bullets":["Key insight one","Key insight two"]},{"layout":"timeline","heading":"Process","steps":[{"number":"01","title":"Step one","description":"What happens and why it matters in detail"},{"number":"02","title":"Step two","description":"What happens and why it matters in detail"},{"number":"03","title":"Step three","description":"What happens and why it matters in detail"},{"number":"04","title":"Step four","description":"What happens and why it matters in detail"}]},{"layout":"closing","heading":"Thank You","subheading":"Closing tagline","key_takeaways":["Most important insight","Second insight","Call to action"]}]}`,
+"title": needs heading, subheading, bullets(3 items)
+"bullets": needs heading, subheading, bullets(4-6 items each 12+ words)
+"two_column": needs heading, left_heading, left_bullets(4 items), right_heading, right_bullets(4 items) — BOTH sides must have content
+"three_cards": needs heading, cards(3 items each with title, emoji, points(3 items each 10+ words))
+"big_stat": needs heading, stats(3 items each with number, label, context), bullets(2-3 items)
+"comparison": needs heading, left_heading, left_bullets(4 items), right_heading, right_bullets(4 items), verdict
+"timeline": needs heading, steps(4 items each with number, title, description(20+ words))
+"quote_focus": needs heading, quote(powerful statement), author, explanation(2-3 sentences)
+"checklist": needs heading, left_heading, left_items(4 items each 10+ words), right_heading, right_items(4 items each 10+ words)
+"case_study": needs heading, case_name, situation(2-3 sentences), action(2-3 sentences), result(with numbers), lesson
+"closing": needs heading, subheading, key_takeaways(3 items)
+
+FULL JSON EXAMPLE — follow this structure exactly:
+{"title":"Topic Title","theme":"education","slides":[
+{"layout":"title","heading":"Full Topic Title","subheading":"Powerful subtitle","bullets":["Key insight one about this topic","Key insight two about this topic","Key insight three about this topic"]},
+{"layout":"bullets","heading":"Introduction","subheading":"Overview of the topic","bullets":["First detailed point with real data and specific information about the topic","Second detailed point explaining core concept with example from real world","Third detailed point covering important aspect with statistics or evidence","Fourth detailed point providing expert insight on the subject matter"]},
+{"layout":"big_stat","heading":"Key Statistics","stats":[{"number":"73%","label":"Relevant metric label","context":"Source: Organization Year"},{"number":"2.5M","label":"Another metric label","context":"Source: Report Year"},{"number":"40%","label":"Third metric label","context":"Source: Study Year"}],"bullets":["Supporting insight one explaining what these numbers mean","Supporting insight two on implications for the topic","Supporting insight three on future trends"]},
+{"layout":"two_column","heading":"Two Perspectives","left_heading":"First Aspect Title","left_bullets":["Detailed point about first aspect with explanation","Second point about first aspect with real example","Third point about first aspect with data or evidence","Fourth point about first aspect with expert view"],"right_heading":"Second Aspect Title","right_bullets":["Detailed point about second aspect with explanation","Second point about second aspect with real example","Third point about second aspect with data or evidence","Fourth point about second aspect with expert view"]},
+{"layout":"three_cards","heading":"Three Key Areas","cards":[{"title":"First Area","emoji":"📊","points":["Detailed point one about first area with context","Detailed point two about first area with example","Detailed point three about first area with impact"]},{"title":"Second Area","emoji":"💡","points":["Detailed point one about second area with context","Detailed point two about second area with example","Detailed point three about second area with impact"]},{"title":"Third Area","emoji":"🚀","points":["Detailed point one about third area with context","Detailed point two about third area with example","Detailed point three about third area with impact"]}]},
+{"layout":"timeline","heading":"Step by Step Process","steps":[{"number":"01","title":"First Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"02","title":"Second Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"03","title":"Third Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"04","title":"Fourth Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"}]},
+{"layout":"comparison","heading":"Comparison Title","left_heading":"Option A","left_bullets":["First point about Option A with detail","Second point about Option A with evidence","Third point about Option A with example","Fourth point about Option A with impact"],"right_heading":"Option B","right_bullets":["First point about Option B with detail","Second point about Option B with evidence","Third point about Option B with example","Fourth point about Option B with impact"],"verdict":"Clear conclusion about which approach works best and in what circumstances"},
+{"layout":"checklist","heading":"Best Practices","left_heading":"Do This","left_items":["First recommended action with full explanation of why it works","Second recommended action with specific steps to follow","Third recommended action with expected positive outcome","Fourth recommended action with real world evidence"],"right_heading":"Avoid This","right_items":["First common mistake and why it causes problems or negative outcomes","Second mistake with specific consequences to be aware of","Third mistake with better alternative that should be used instead","Fourth mistake with real world example of negative impact"]},
+{"layout":"quote_focus","heading":"Key Insight","quote":"A powerful and memorable statement directly related to this topic that captures the essence","author":"Name, Title, Organization","explanation":"Two to three sentence explanation of why this quote matters deeply, what it reveals about the topic, and how it applies to our understanding today"},
+{"layout":"case_study","heading":"Real World Example","case_name":"Specific Company or Person Name","situation":"Two to three sentence description of the specific challenge or problem faced, including relevant context and background information","action":"Specific steps that were taken to address the situation, including strategies applied and decisions made along the way","result":"Measurable outcomes achieved including specific numbers, percentages, or other quantifiable improvements","lesson":"The key insight this case study teaches us and how it directly applies to the broader topic"},
+{"layout":"closing","heading":"Thank You","subheading":"Memorable and relevant closing tagline","key_takeaways":["The single most important insight from this presentation that audience must remember","Second critical point that reinforces the main message of the presentation","Clear actionable next step or call to action for the audience to take"]}
+]}`,
 
     'realtime': base + `You are a hackathon crisis manager. SHORT. DIRECT. NO FLUFF.
 

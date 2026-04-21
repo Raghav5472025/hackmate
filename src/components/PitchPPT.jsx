@@ -92,14 +92,18 @@ function renderTwoColumn(s, sl, T, n) {
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 0.5 }, shadow: mkS() })
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.46, fill: { color: T.bg }, line: { type: 'none' } })
   s.addText(sl.left_heading || 'Column A', { x: 0.44, y: 1.02, w: cw - 0.2, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.left_bullets || []).slice(0, 5).forEach((b, i) => {
+  const leftB = (sl.left_bullets || []).filter(b => b && b.trim())
+  if (!leftB.length) leftB.push('Key aspect of ' + (sl.left_heading || 'this section'), 'Important detail with real world context', 'Expert insight and evidence', 'Practical application and example')
+  leftB.slice(0, 5).forEach((b, i) => {
     s.addShape('rect', { x: 0.42, y: 1.6 + i * 0.7, w: 0.08, h: 0.52, fill: { color: T.accent }, line: { type: 'none' } })
     s.addText(b, { x: 0.6, y: 1.58 + i * 0.7, w: cw - 0.42, h: 0.62, fontSize: 12, color: '1E293B', valign: 'middle', wrap: true })
   })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: H - 1.5, fill: { color: T.bg }, line: { type: 'none' }, shadow: mkS() })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.46, fill: { color: T.accent }, line: { type: 'none' } })
   s.addText(sl.right_heading || 'Column B', { x: 5.38, y: 1.02, w: cw - 0.2, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.right_bullets || []).slice(0, 5).forEach((b, i) => {
+  const rightB = (sl.right_bullets || []).filter(b => b && b.trim())
+  if (!rightB.length) rightB.push('Key aspect of ' + (sl.right_heading || 'this section'), 'Important detail with supporting evidence', 'Expert perspective and analysis', 'Practical implications and examples')
+  rightB.slice(0, 5).forEach((b, i) => {
     s.addShape('rect', { x: 5.32, y: 1.6 + i * 0.7, w: 0.08, h: 0.52, fill: { color: T.accent }, line: { type: 'none' } })
     s.addText(b, { x: 5.5, y: 1.58 + i * 0.7, w: cw - 0.42, h: 0.62, fontSize: 12, color: T.body, valign: 'middle', wrap: true })
   })
@@ -120,7 +124,9 @@ function renderThreeCards(s, sl, T, n) {
     s.addText(card.emoji || '📌', { x: x + (cw - 0.08) / 2 - 0.36, y: 1.15, w: 0.72, h: 0.72, fontSize: 19, align: 'center', valign: 'middle' })
     s.addText(card.title || '', { x: x + 0.08, y: 2.0, w: cw - 0.24, h: 0.5, fontSize: 12, bold: true, color: isMiddle ? 'FFFFFF' : T.text, align: 'center', wrap: true })
     s.addShape('rect', { x: x + (cw - 0.08) * 0.3, y: 2.55, w: (cw - 0.08) * 0.4, h: 0.04, fill: { color: T.accent }, line: { type: 'none' } })
-    ;(card.points || []).slice(0, 3).forEach((pt, j) => {
+    const pts = (card.points || []).filter(p => p && p.trim())
+    if (!pts.length) pts.push('Key information about ' + (card.title || 'this area'), 'Important details and context', 'Real world application')
+    pts.slice(0, 3).forEach((pt, j) => {
       s.addText([{ text: '• ', options: { bold: true, color: T.accent } }, { text: pt, options: { color: isMiddle ? 'E2E8F0' : '374151' } }],
         { x: x + 0.1, y: 2.65 + j * 0.72, w: cw - 0.28, h: 0.65, fontSize: 11, wrap: true, valign: 'top' })
     })
@@ -162,14 +168,18 @@ function renderComparison(s, sl, T, n) {
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: colH, fill: { color: 'FFFFFF' }, line: { color: T.accent, width: 1.2 }, shadow: mkS() })
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.48, fill: { color: T.bg }, line: { type: 'none' } })
   s.addText(sl.left_heading || 'Option A', { x: 0.44, y: 1.02, w: cw - 0.28, h: 0.48, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.left_bullets || []).slice(0, 5).forEach((b, i) => {
+  const compLeft = (sl.left_bullets || []).filter(b => b && b.trim())
+  if (!compLeft.length) compLeft.push('Key advantage of this approach', 'Supporting evidence and data', 'Real world application', 'Expert recommendation')
+  compLeft.slice(0, 5).forEach((b, i) => {
     s.addShape('oval', { x: 0.42, y: 1.62 + i * 0.64, w: 0.22, h: 0.22, fill: { color: T.card }, line: { type: 'none' } })
     s.addText(b, { x: 0.74, y: 1.58 + i * 0.64, w: cw - 0.54, h: 0.58, fontSize: 12, color: '1E293B', valign: 'middle', wrap: true })
   })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: colH, fill: { color: T.bg }, line: { type: 'none' }, shadow: mkS() })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.48, fill: { color: T.accent }, line: { type: 'none' } })
   s.addText(sl.right_heading || 'Option B', { x: 5.38, y: 1.02, w: cw - 0.28, h: 0.48, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.right_bullets || []).slice(0, 5).forEach((b, i) => {
+  const compRight = (sl.right_bullets || []).filter(b => b && b.trim())
+  if (!compRight.length) compRight.push('Key advantage of this approach', 'Supporting evidence and data', 'Real world application', 'Expert recommendation')
+  compRight.slice(0, 5).forEach((b, i) => {
     s.addShape('oval', { x: 5.34, y: 1.62 + i * 0.64, w: 0.22, h: 0.22, fill: { color: T.accent, transparency: 40 }, line: { type: 'none' } })
     s.addText(b, { x: 5.64, y: 1.58 + i * 0.64, w: cw - 0.54, h: 0.58, fontSize: 12, color: T.body, valign: 'middle', wrap: true })
   })
@@ -227,14 +237,18 @@ function renderChecklist(s, sl, T, n) {
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'F0FDF4' }, line: { color: '86EFAC', width: 0.8 }, shadow: mkS() })
   s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.46, fill: { color: '16A34A' }, line: { type: 'none' } })
   s.addText(sl.left_heading || 'Do This', { x: 0.44, y: 1.02, w: cw - 0.28, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.left_items || []).slice(0, 5).forEach((item, i) => {
+  const leftItems = (sl.left_items || []).filter(x => x && x.trim())
+  if (!leftItems.length) leftItems.push('Follow established best practices and guidelines', 'Seek expert advice and mentorship', 'Plan thoroughly before execution', 'Review and iterate based on feedback')
+  leftItems.slice(0, 5).forEach((item, i) => {
     s.addText('✓', { x: 0.4, y: 1.6 + i * 0.64, w: 0.3, h: 0.52, fontSize: 14, bold: true, color: '16A34A', valign: 'middle' })
     s.addText(item, { x: 0.72, y: 1.58 + i * 0.64, w: cw - 0.58, h: 0.56, fontSize: 12, color: '14532D', valign: 'middle', wrap: true })
   })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'FFF1F2' }, line: { color: 'FCA5A5', width: 0.8 }, shadow: mkS() })
   s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.46, fill: { color: 'DC2626' }, line: { type: 'none' } })
   s.addText(sl.right_heading || 'Avoid This', { x: 5.38, y: 1.02, w: cw - 0.28, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  ;(sl.right_items || []).slice(0, 5).forEach((item, i) => {
+  const rightItems = (sl.right_items || []).filter(x => x && x.trim())
+  if (!rightItems.length) rightItems.push('Avoid shortcuts that compromise quality', 'Do not ignore warning signs or feedback', 'Never skip planning and preparation', 'Avoid overconfidence without proper research')
+  rightItems.slice(0, 5).forEach((item, i) => {
     s.addText('✗', { x: 5.35, y: 1.6 + i * 0.64, w: 0.3, h: 0.52, fontSize: 14, bold: true, color: 'DC2626', valign: 'middle' })
     s.addText(item, { x: 5.68, y: 1.58 + i * 0.64, w: cw - 0.58, h: 0.56, fontSize: 12, color: '7F1D1D', valign: 'middle', wrap: true })
   })
@@ -259,7 +273,8 @@ function renderCaseStudy(s, sl, T, n) {
     s.addShape('rect', { x, y, w: sw, h: 1.66, fill: { color: sec.bg }, line: { color: sec.bd, width: 0.5 }, shadow: mkS() })
     s.addText(sec.icon + '  ' + sec.label, { x: x + 0.1, y: y + 0.06, w: sw - 0.2, h: 0.3, fontSize: 10, bold: true, color: sec.tc, charSpacing: 0.5 })
     s.addShape('rect', { x: x + 0.1, y: y + 0.38, w: sw - 0.2, h: 0.03, fill: { color: sec.bd }, line: { type: 'none' } })
-    s.addText(sec.text, { x: x + 0.1, y: y + 0.46, w: sw - 0.2, h: 1.12, fontSize: 11, color: sec.tc, wrap: true, valign: 'top' })
+    const secText = sec.text && sec.text.trim() ? sec.text : 'Detailed information about this ' + sec.label.toLowerCase() + ' will be provided here with specific context.'
+    s.addText(secText, { x: x + 0.1, y: y + 0.46, w: sw - 0.2, h: 1.12, fontSize: 11, color: sec.tc, wrap: true, valign: 'top' })
   })
 }
 
