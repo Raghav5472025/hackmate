@@ -1,354 +1,429 @@
 // src/components/PitchPPT.jsx
-// AI-driven PPT — 15 professional layouts for all fields
+// npm install pptxgenjs
 
 import { useState } from 'react'
 
+// ─── THEME ENGINE ─────────────────────────────────────────────────────────────
 const THEMES = {
-  education:   { bg: '1E1B4B', accent: 'A78BFA', accent2: '7C3AED', dark: '13124A', card: 'EDE9FE', cardText: '4C1D95', light: 'F5F3FF', text: '1E293B', body: 'E2E8F0' },
-  business:    { bg: '0F172A', accent: '38BDF8', accent2: '0284C7', dark: '020617', card: 'E0F2FE', cardText: '0C4A6E', light: 'F0F9FF', text: '0F172A', body: 'E2E8F0' },
-  medical:     { bg: '064E3B', accent: '34D399', accent2: '059669', dark: '022C22', card: 'D1FAE5', cardText: '065F46', light: 'ECFDF5', text: '1E293B', body: 'D1FAE5' },
-  technology:  { bg: '0C0A1A', accent: '818CF8', accent2: '4F46E5', dark: '05040E', card: 'E0E7FF', cardText: '3730A3', light: 'EEF2FF', text: '1E293B', body: 'C7D2FE' },
-  finance:     { bg: '1C1917', accent: 'FCD34D', accent2: 'D97706', dark: '0C0A09', card: 'FEF9C3', cardText: '713F12', light: 'FEFCE8', text: '1C1917', body: 'FDE68A' },
-  environment: { bg: '052E16', accent: '4ADE80', accent2: '16A34A', dark: '021108', card: 'DCFCE7', cardText: '14532D', light: 'F0FDF4', text: '1E293B', body: 'BBF7D0' },
-  law:         { bg: '1C0A00', accent: 'FCD34D', accent2: 'B45309', dark: '0A0400', card: 'FEF3C7', cardText: '78350F', light: 'FFFBEB', text: '1C1917', body: 'FDE68A' },
-  psychology:  { bg: '2E1065', accent: 'F0ABFC', accent2: 'C026D3', dark: '1A0540', card: 'FAE8FF', cardText: '701A75', light: 'FDF4FF', text: '1E293B', body: 'F5D0FE' },
-  arts:        { bg: '1C0A00', accent: 'FB923C', accent2: 'EA580C', dark: '0A0400', card: 'FFEDD5', cardText: '7C2D12', light: 'FFF7ED', text: '1E293B', body: 'FED7AA' },
-  science:     { bg: '0F172A', accent: '60A5FA', accent2: '2563EB', dark: '020617', card: 'DBEAFE', cardText: '1E3A8A', light: 'EFF6FF', text: '1E293B', body: 'BFDBFE' },
-  default:     { bg: '09061E', accent: '8B5CF6', accent2: '7C3AED', dark: '040210', card: 'EDE9FE', cardText: '4C1D95', light: 'F5F3FF', text: '1E293B', body: 'DDD6FE' },
+  medical:     { bg: '0C1E3C', accent: '06B6D4', accent2: '0284C7', dark: '071428', card: '0F2D4A', text: 'FFFFFF', sub: '80DEEA' },
+  technology:  { bg: '09061E', accent: '8B5CF6', accent2: '7C3AED', dark: '040210', card: '130F2E', text: 'FFFFFF', sub: 'C4B5FD' },
+  business:    { bg: '09090B', accent: 'EAB308', accent2: 'CA8A04', dark: '000000', card: '18181B', text: 'FFFFFF', sub: 'FEF08A' },
+  finance:     { bg: '0A0F1E', accent: '10B981', accent2: '059669', dark: '050A12', card: '0F1A2E', text: 'FFFFFF', sub: '6EE7B7' },
+  education:   { bg: '1E1B4B', accent: 'F97316', accent2: 'EA580C', dark: '13124A', card: '272460', text: 'FFFFFF', sub: 'FED7AA' },
+  environment: { bg: '052E16', accent: '84CC16', accent2: '65A30D', dark: '031508', card: '0A4A22', text: 'FFFFFF', sub: 'D9F99D' },
+  science:     { bg: '0F172A', accent: '38BDF8', accent2: '0EA5E9', dark: '080E1A', card: '1E293B', text: 'FFFFFF', sub: 'BAE6FD' },
+  psychology:  { bg: '1A0A2E', accent: 'EC4899', accent2: 'DB2777', dark: '0F0519', card: '2A1040', text: 'FFFFFF', sub: 'FBCFE8' },
+  law:         { bg: '1C1008', accent: 'F59E0B', accent2: 'D97706', dark: '0E0804', card: '2C1A0C', text: 'FFFFFF', sub: 'FDE68A' },
+  arts:        { bg: '1A0A0A', accent: 'F87171', accent2: 'EF4444', dark: '0A0404', card: '2A1010', text: 'FFFFFF', sub: 'FECACA' },
+  default:     { bg: '09061E', accent: '8B5CF6', accent2: '7C3AED', dark: '040210', card: '130F2E', text: 'FFFFFF', sub: 'C4B5FD' },
 }
 
+// ─── JSON PARSER ──────────────────────────────────────────────────────────────
+function parseJSON(rawText) {
+  // Try to extract JSON from the response
+  let jsonStr = rawText.trim()
+
+  // Remove markdown code blocks if present
+  jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/\s*```$/, '')
+  jsonStr = jsonStr.replace(/^```\s*/i, '').replace(/\s*```$/, '')
+
+  // Find JSON object boundaries
+  const start = jsonStr.indexOf('{')
+  const end = jsonStr.lastIndexOf('}')
+  if (start !== -1 && end !== -1) {
+    jsonStr = jsonStr.substring(start, end + 1)
+  }
+
+  try {
+    return JSON.parse(jsonStr)
+  } catch (e) {
+    // Try fixing common JSON issues
+    jsonStr = jsonStr
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
+    try {
+      return JSON.parse(jsonStr)
+    } catch (e2) {
+      throw new Error('AI returned invalid JSON. Please click Regenerate and try again.')
+    }
+  }
+}
+
+// ─── PPT GENERATOR ────────────────────────────────────────────────────────────
 const W = 10, H = 5.625
-const mkS = () => ({ type: 'outer', color: '000000', blur: 8, offset: 2, angle: 135, opacity: 0.1 })
 
-// ── Shared helpers ─────────────────────────────────────────────────────────────
-function hdr(s, T, text) {
-  s.addShape('rect', { x: 0, y: 0, w: W, h: 0.95, fill: { color: T.bg }, line: { type: 'none' } })
-  s.addShape('rect', { x: 0, y: 0, w: 0.12, h: 0.95, fill: { color: T.accent }, line: { type: 'none' } })
-  s.addText(text || '', { x: 0.28, y: 0, w: 9.3, h: 0.95, fontSize: 21, bold: true, color: 'FFFFFF', valign: 'middle', fontFace: 'Arial Black', wrap: true })
-}
-function num(s, n) {
-  s.addText(String(n), { x: 9.4, y: 0.3, w: 0.45, h: 0.35, fontSize: 10, color: '94A3B8', align: 'right' })
-}
-function footer(s, T, title) {
-  s.addShape('rect', { x: 0, y: H - 0.48, w: W, h: 0.48, fill: { color: T.dark }, line: { type: 'none' } })
-  s.addText('Powered by HackMate AI', { x: 0.5, y: H - 0.48, w: W - 1, h: 0.48, fontSize: 9, color: T.accent, align: 'center', valign: 'middle' })
-}
-
-// ── 1. title ──────────────────────────────────────────────────────────────────
-function renderTitle(s, sl, T) {
-  s.background = { color: T.bg }
-  s.addShape('oval', { x: 5.5, y: -2.5, w: 7.5, h: 7.5, fill: { color: T.accent, transparency: 88 }, line: { type: 'none' } })
-  s.addShape('oval', { x: 7.5, y: -0.5, w: 4, h: 4, fill: { color: T.accent2, transparency: 82 }, line: { type: 'none' } })
-  s.addShape('oval', { x: -2, y: 3.8, w: 3.5, h: 3.5, fill: { color: T.accent, transparency: 92 }, line: { type: 'none' } })
-  s.addShape('rect', { x: 0, y: 0, w: 0.16, h: H, fill: { color: T.accent }, line: { type: 'none' } })
-  // Badge
-  s.addShape('rect', { x: 0.55, y: 0.42, w: 3.8, h: 0.42, fill: { color: T.accent, transparency: 16 }, line: { type: 'none' } })
-  s.addText('✨  AI GENERATED  •  HACKMATE', { x: 0.55, y: 0.42, w: 3.8, h: 0.42, fontSize: 7, bold: true, color: T.accent, align: 'center', valign: 'middle', charSpacing: 1.2 })
-  // Title
-  const len = (sl.heading || '').length
-  const sz = len > 45 ? 26 : len > 32 ? 32 : len > 20 ? 40 : 48
-  s.addText(sl.heading || '', { x: 0.5, y: 1.0, w: 8.8, h: 2.1, fontSize: sz, bold: true, color: 'FFFFFF', fontFace: 'Arial Black', align: 'left', valign: 'top', wrap: true })
-  // Accent line
-  s.addShape('rect', { x: 0.5, y: 3.18, w: 1.5, h: 0.05, fill: { color: T.accent }, line: { type: 'none' } })
-  if (sl.subheading) s.addText(sl.subheading, { x: 0.5, y: 3.3, w: 8, h: 0.6, fontSize: 16, color: T.accent, align: 'left', italic: true, wrap: true })
-  if (sl.bullets?.length) {
-    sl.bullets.slice(0, 3).forEach((b, i) => {
-      s.addShape('oval', { x: 0.5, y: 4.05 + i * 0.36, w: 0.2, h: 0.2, fill: { color: T.accent, transparency: 20 }, line: { type: 'none' } })
-      s.addText(b, { x: 0.82, y: 4.0 + i * 0.36, w: 7.2, h: 0.3, fontSize: 11, color: 'CBD5E1', valign: 'middle', wrap: true })
-    })
-  }
-  footer(s, T)
-}
-
-// ── 2. bullets ────────────────────────────────────────────────────────────────
-function renderBullets(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading); num(s, n)
-  if (sl.subheading) {
-    s.addShape('rect', { x: 0.35, y: 1.0, w: 9.3, h: 0.34, fill: { color: T.card }, line: { type: 'none' } })
-    s.addShape('rect', { x: 0.35, y: 1.0, w: 0.08, h: 0.34, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addText(sl.subheading, { x: 0.52, y: 1.0, w: 9.0, h: 0.34, fontSize: 11, color: T.cardText, italic: true, valign: 'middle' })
-  }
-  const yS = sl.subheading ? 1.42 : 1.02
-  const items = (sl.bullets || []).slice(0, 6)
-  const avH = H - yS - 0.42
-  const bh = Math.min(avH / items.length - 0.07, 1.0)
-  const gap = Math.max((avH - bh * items.length) / Math.max(items.length - 1, 1), 0.06)
-  items.forEach((b, i) => {
-    const y = yS + i * (bh + gap)
-    s.addShape('rect', { x: 0.35, y, w: 9.3, h: bh, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 0.5 }, shadow: mkS() })
-    s.addShape('rect', { x: 0.35, y, w: 0.1, h: bh, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addShape('oval', { x: 0.58, y: y + bh / 2 - 0.15, w: 0.3, h: 0.3, fill: { color: T.card }, line: { type: 'none' } })
-    s.addText(String(i + 1), { x: 0.58, y: y + bh / 2 - 0.15, w: 0.3, h: 0.3, fontSize: 9, bold: true, color: T.cardText, align: 'center', valign: 'middle' })
-    s.addText(b, { x: 1.02, y, w: 8.48, h: bh, fontSize: 13, color: '1E293B', valign: 'middle', wrap: true })
-  })
-}
-
-// ── 3. two_column ─────────────────────────────────────────────────────────────
-function renderTwoColumn(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading); num(s, n)
-  const cw = 4.45
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'FFFFFF' }, line: { color: 'E2E8F0', width: 0.5 }, shadow: mkS() })
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.46, fill: { color: T.bg }, line: { type: 'none' } })
-  s.addText(sl.left_heading || 'Column A', { x: 0.44, y: 1.02, w: cw - 0.2, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const leftB = (sl.left_bullets || []).filter(b => b && b.trim())
-  if (!leftB.length) leftB.push('Key aspect of ' + (sl.left_heading || 'this section'), 'Important detail with real world context', 'Expert insight and evidence', 'Practical application and example')
-  leftB.slice(0, 5).forEach((b, i) => {
-    s.addShape('rect', { x: 0.42, y: 1.6 + i * 0.7, w: 0.08, h: 0.52, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addText(b, { x: 0.6, y: 1.58 + i * 0.7, w: cw - 0.42, h: 0.62, fontSize: 12, color: '1E293B', valign: 'middle', wrap: true })
-  })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: H - 1.5, fill: { color: T.bg }, line: { type: 'none' }, shadow: mkS() })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.46, fill: { color: T.accent }, line: { type: 'none' } })
-  s.addText(sl.right_heading || 'Column B', { x: 5.38, y: 1.02, w: cw - 0.2, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const rightB = (sl.right_bullets || []).filter(b => b && b.trim())
-  if (!rightB.length) rightB.push('Key aspect of ' + (sl.right_heading || 'this section'), 'Important detail with supporting evidence', 'Expert perspective and analysis', 'Practical implications and examples')
-  rightB.slice(0, 5).forEach((b, i) => {
-    s.addShape('rect', { x: 5.32, y: 1.6 + i * 0.7, w: 0.08, h: 0.52, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addText(b, { x: 5.5, y: 1.58 + i * 0.7, w: cw - 0.42, h: 0.62, fontSize: 12, color: T.body, valign: 'middle', wrap: true })
-  })
-}
-
-// ── 4. three_cards ────────────────────────────────────────────────────────────
-function renderThreeCards(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading); num(s, n)
-  const cards = (sl.cards || []).slice(0, 3)
-  const cw = (W - 0.7) / 3
-  cards.forEach((card, i) => {
-    const x = 0.35 + i * cw
-    const isMiddle = i === 1
-    s.addShape('rect', { x, y: 1.02, w: cw - 0.08, h: H - 1.5, fill: { color: isMiddle ? T.bg : 'FFFFFF' }, line: { color: isMiddle ? T.accent : 'E2E8F0', width: isMiddle ? 1.5 : 0.5 }, shadow: mkS() })
-    s.addShape('rect', { x, y: 1.02, w: cw - 0.08, h: 0.06, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addShape('oval', { x: x + (cw - 0.08) / 2 - 0.36, y: 1.15, w: 0.72, h: 0.72, fill: { color: isMiddle ? T.accent : T.card }, line: { type: 'none' } })
-    s.addText(card.emoji || '📌', { x: x + (cw - 0.08) / 2 - 0.36, y: 1.15, w: 0.72, h: 0.72, fontSize: 19, align: 'center', valign: 'middle' })
-    s.addText(card.title || '', { x: x + 0.08, y: 2.0, w: cw - 0.24, h: 0.5, fontSize: 12, bold: true, color: isMiddle ? 'FFFFFF' : T.text, align: 'center', wrap: true })
-    s.addShape('rect', { x: x + (cw - 0.08) * 0.3, y: 2.55, w: (cw - 0.08) * 0.4, h: 0.04, fill: { color: T.accent }, line: { type: 'none' } })
-    const pts = (card.points || []).filter(p => p && p.trim())
-    if (!pts.length) pts.push('Key information about ' + (card.title || 'this area'), 'Important details and context', 'Real world application')
-    pts.slice(0, 3).forEach((pt, j) => {
-      s.addText([{ text: '• ', options: { bold: true, color: T.accent } }, { text: pt, options: { color: isMiddle ? 'E2E8F0' : '374151' } }],
-        { x: x + 0.1, y: 2.65 + j * 0.72, w: cw - 0.28, h: 0.65, fontSize: 11, wrap: true, valign: 'top' })
-    })
-  })
-}
-
-// ── 5. big_stat ───────────────────────────────────────────────────────────────
-function renderBigStat(s, sl, T, n) {
-  s.background = { color: T.bg }
-  hdr(s, T, sl.heading); num(s, n)
-  const stats = (sl.stats || []).slice(0, 3)
-  const sw = stats.length === 2 ? 4.1 : 2.85
-  const totalW = sw * stats.length + 0.2 * (stats.length - 1)
-  const sX = (W - totalW) / 2
-  stats.forEach((st, i) => {
-    const x = sX + i * (sw + 0.2)
-    s.addShape('rect', { x, y: 1.05, w: sw, h: 1.9, fill: { color: T.accent, transparency: 14 }, line: { color: T.accent, width: 0.8 } })
-    s.addShape('rect', { x, y: 1.05, w: sw, h: 0.08, fill: { color: T.accent }, line: { type: 'none' } })
-    s.addText(st.number || '', { x, y: 1.12, w: sw, h: 0.95, fontSize: 38, bold: true, color: T.accent, align: 'center', fontFace: 'Arial Black' })
-    s.addText(st.label || '', { x: x + 0.1, y: 2.1, w: sw - 0.2, h: 0.42, fontSize: 12, bold: true, color: 'FFFFFF', align: 'center', wrap: true })
-    if (st.context) s.addText(st.context, { x: x + 0.08, y: 2.55, w: sw - 0.16, h: 0.32, fontSize: 9, color: 'CBD5E1', align: 'center', wrap: true })
-  })
-  const buls = (sl.bullets || []).slice(0, 3)
-  if (buls.length) {
-    s.addShape('rect', { x: 0.35, y: 3.02, w: W - 0.7, h: 0.04, fill: { color: T.accent, transparency: 55 }, line: { type: 'none' } })
-    buls.forEach((b, i) => {
-      s.addShape('oval', { x: 0.38, y: 3.14 + i * 0.56, w: 0.26, h: 0.26, fill: { color: T.accent }, line: { type: 'none' } })
-      s.addText(b, { x: 0.74, y: 3.12 + i * 0.56, w: 9.0, h: 0.48, fontSize: 12, color: T.body, valign: 'middle', wrap: true })
-    })
-  }
-}
-
-// ── 6. comparison ─────────────────────────────────────────────────────────────
-function renderComparison(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading); num(s, n)
-  const cw = 4.45, hasV = !!sl.verdict
-  const colH = hasV ? H - 1.95 : H - 1.5
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: colH, fill: { color: 'FFFFFF' }, line: { color: T.accent, width: 1.2 }, shadow: mkS() })
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.48, fill: { color: T.bg }, line: { type: 'none' } })
-  s.addText(sl.left_heading || 'Option A', { x: 0.44, y: 1.02, w: cw - 0.28, h: 0.48, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const compLeft = (sl.left_bullets || []).filter(b => b && b.trim())
-  if (!compLeft.length) compLeft.push('Key advantage of this approach', 'Supporting evidence and data', 'Real world application', 'Expert recommendation')
-  compLeft.slice(0, 5).forEach((b, i) => {
-    s.addShape('oval', { x: 0.42, y: 1.62 + i * 0.64, w: 0.22, h: 0.22, fill: { color: T.card }, line: { type: 'none' } })
-    s.addText(b, { x: 0.74, y: 1.58 + i * 0.64, w: cw - 0.54, h: 0.58, fontSize: 12, color: '1E293B', valign: 'middle', wrap: true })
-  })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: colH, fill: { color: T.bg }, line: { type: 'none' }, shadow: mkS() })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.48, fill: { color: T.accent }, line: { type: 'none' } })
-  s.addText(sl.right_heading || 'Option B', { x: 5.38, y: 1.02, w: cw - 0.28, h: 0.48, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const compRight = (sl.right_bullets || []).filter(b => b && b.trim())
-  if (!compRight.length) compRight.push('Key advantage of this approach', 'Supporting evidence and data', 'Real world application', 'Expert recommendation')
-  compRight.slice(0, 5).forEach((b, i) => {
-    s.addShape('oval', { x: 5.34, y: 1.62 + i * 0.64, w: 0.22, h: 0.22, fill: { color: T.accent, transparency: 40 }, line: { type: 'none' } })
-    s.addText(b, { x: 5.64, y: 1.58 + i * 0.64, w: cw - 0.54, h: 0.58, fontSize: 12, color: T.body, valign: 'middle', wrap: true })
-  })
-  if (sl.verdict) {
-    s.addShape('rect', { x: 0.3, y: H - 0.8, w: W - 0.6, h: 0.44, fill: { color: T.card }, line: { type: 'none' } })
-    s.addText('💡  ' + sl.verdict, { x: 0.45, y: H - 0.8, w: W - 0.9, h: 0.44, fontSize: 12, color: T.cardText, valign: 'middle', italic: true, wrap: true })
-  }
-}
-
-// ── 7. timeline ───────────────────────────────────────────────────────────────
-function renderTimeline(s, sl, T, n) {
-  s.background = { color: T.bg }
-  hdr(s, T, sl.heading); num(s, n)
-  const steps = (sl.steps || []).slice(0, 4)
-  const sw = (W - 0.6) / steps.length
-  steps.forEach((st, i) => {
-    const x = 0.3 + i * sw
-    const last = i === steps.length - 1
-    s.addShape('rect', { x, y: 1.05, w: sw - 0.1, h: H - 1.55, fill: { color: last ? T.accent2 : 'FFFFFF' }, line: { color: last ? T.accent : 'E2E8F0', width: 0.5 }, shadow: mkS() })
-    const cx = x + (sw - 0.1) / 2
-    s.addShape('oval', { x: cx - 0.36, y: 1.16, w: 0.72, h: 0.72, fill: { color: last ? 'FFFFFF' : T.bg }, line: { type: 'none' } })
-    s.addText(st.number || String(i + 1), { x: cx - 0.36, y: 1.16, w: 0.72, h: 0.72, fontSize: 17, bold: true, color: last ? T.accent2 : 'FFFFFF', align: 'center', valign: 'middle', fontFace: 'Arial Black' })
-    if (!last) s.addText('▶', { x: x + sw - 0.18, y: 1.44, w: 0.2, h: 0.38, fontSize: 12, color: T.accent, align: 'center' })
-    s.addText(st.title || '', { x: x + 0.1, y: 2.0, w: sw - 0.3, h: 0.52, fontSize: 12, bold: true, color: last ? 'FFFFFF' : T.text, align: 'center', wrap: true })
-    s.addShape('rect', { x: cx - (sw - 0.1) * 0.22, y: 2.57, w: (sw - 0.1) * 0.44, h: 0.04, fill: { color: last ? 'FFFFFF' : T.accent }, line: { type: 'none' } })
-    s.addText(st.description || '', { x: x + 0.1, y: 2.68, w: sw - 0.3, h: H - 3.25, fontSize: 11, color: last ? 'F0FFF4' : '374151', wrap: true, valign: 'top' })
-  })
-}
-
-// ── 8. quote_focus ────────────────────────────────────────────────────────────
-function renderQuoteFocus(s, sl, T, n) {
-  s.background = { color: T.bg }
-  s.addShape('oval', { x: -2.5, y: -2, w: 7, h: 7, fill: { color: T.accent, transparency: 92 }, line: { type: 'none' } })
-  s.addShape('oval', { x: 7, y: 2.5, w: 5, h: 5, fill: { color: T.accent2, transparency: 92 }, line: { type: 'none' } })
-  num(s, n)
-  if (sl.heading) {
-    s.addShape('rect', { x: 0, y: 0, w: W, h: 0.5, fill: { color: T.dark }, line: { type: 'none' } })
-    s.addText(sl.heading, { x: 0.3, y: 0, w: W - 0.6, h: 0.5, fontSize: 12, color: T.accent, valign: 'middle', bold: true })
-  }
-  s.addText('\u201C', { x: 0.28, y: 0.52, w: 1.2, h: 1.1, fontSize: 78, color: T.accent, transparency: 38, fontFace: 'Arial Black' })
-  s.addText(sl.quote || '', { x: 0.75, y: 1.0, w: 8.5, h: 2.15, fontSize: 20, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', wrap: true, italic: true })
-  s.addShape('rect', { x: 3.5, y: 3.22, w: 3.0, h: 0.06, fill: { color: T.accent }, line: { type: 'none' } })
-  if (sl.author) s.addText('— ' + sl.author, { x: 0.5, y: 3.35, w: W - 1, h: 0.36, fontSize: 13, color: T.accent, align: 'center', italic: true })
-  if (sl.explanation) {
-    s.addShape('rect', { x: 0.5, y: 3.82, w: W - 1, h: 0.52, fill: { color: T.accent, transparency: 88 }, line: { type: 'none' } })
-    s.addText(sl.explanation, { x: 0.65, y: 3.82, w: W - 1.3, h: 0.52, fontSize: 11, color: 'CBD5E1', valign: 'middle', wrap: true, align: 'center' })
-  }
-}
-
-// ── 9. checklist ──────────────────────────────────────────────────────────────
-function renderChecklist(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading); num(s, n)
-  const cw = 4.45
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'F0FDF4' }, line: { color: '86EFAC', width: 0.8 }, shadow: mkS() })
-  s.addShape('rect', { x: 0.3, y: 1.02, w: cw, h: 0.46, fill: { color: '16A34A' }, line: { type: 'none' } })
-  s.addText(sl.left_heading || 'Do This', { x: 0.44, y: 1.02, w: cw - 0.28, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const leftItems = (sl.left_items || []).filter(x => x && x.trim())
-  if (!leftItems.length) leftItems.push('Follow established best practices and guidelines', 'Seek expert advice and mentorship', 'Plan thoroughly before execution', 'Review and iterate based on feedback')
-  leftItems.slice(0, 5).forEach((item, i) => {
-    s.addText('✓', { x: 0.4, y: 1.6 + i * 0.64, w: 0.3, h: 0.52, fontSize: 14, bold: true, color: '16A34A', valign: 'middle' })
-    s.addText(item, { x: 0.72, y: 1.58 + i * 0.64, w: cw - 0.58, h: 0.56, fontSize: 12, color: '14532D', valign: 'middle', wrap: true })
-  })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: H - 1.5, fill: { color: 'FFF1F2' }, line: { color: 'FCA5A5', width: 0.8 }, shadow: mkS() })
-  s.addShape('rect', { x: 5.25, y: 1.02, w: cw, h: 0.46, fill: { color: 'DC2626' }, line: { type: 'none' } })
-  s.addText(sl.right_heading || 'Avoid This', { x: 5.38, y: 1.02, w: cw - 0.28, h: 0.46, fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' })
-  const rightItems = (sl.right_items || []).filter(x => x && x.trim())
-  if (!rightItems.length) rightItems.push('Avoid shortcuts that compromise quality', 'Do not ignore warning signs or feedback', 'Never skip planning and preparation', 'Avoid overconfidence without proper research')
-  rightItems.slice(0, 5).forEach((item, i) => {
-    s.addText('✗', { x: 5.35, y: 1.6 + i * 0.64, w: 0.3, h: 0.52, fontSize: 14, bold: true, color: 'DC2626', valign: 'middle' })
-    s.addText(item, { x: 5.68, y: 1.58 + i * 0.64, w: cw - 0.58, h: 0.56, fontSize: 12, color: '7F1D1D', valign: 'middle', wrap: true })
-  })
-}
-
-// ── 10. case_study ────────────────────────────────────────────────────────────
-function renderCaseStudy(s, sl, T, n) {
-  s.background = { color: 'F8FAFC' }
-  hdr(s, T, sl.heading || 'Real World Case Study'); num(s, n)
-  s.addShape('rect', { x: 0.3, y: 1.02, w: W - 0.6, h: 0.42, fill: { color: T.bg }, line: { type: 'none' } })
-  s.addText('📌  ' + (sl.case_name || 'Case Study'), { x: 0.44, y: 1.02, w: W - 0.88, h: 0.42, fontSize: 14, bold: true, color: T.accent, valign: 'middle' })
-  const secs = [
-    { label: 'SITUATION', icon: '🔍', text: sl.situation || '', bg: 'EFF6FF', bd: '93C5FD', tc: '1E3A8A' },
-    { label: 'ACTION', icon: '⚡', text: sl.action || '', bg: 'F0FDF4', bd: '86EFAC', tc: '14532D' },
-    { label: 'RESULT', icon: '📈', text: sl.result || '', bg: 'FEF9C3', bd: 'FDE047', tc: '713F12' },
-    { label: 'LESSON', icon: '💡', text: sl.lesson || '', bg: 'FAE8FF', bd: 'E879F9', tc: '701A75' },
-  ]
-  const sw = (W - 0.7) / 2
-  secs.forEach((sec, i) => {
-    const x = 0.3 + (i % 2) * (sw + 0.1)
-    const y = 1.54 + Math.floor(i / 2) * 1.78
-    s.addShape('rect', { x, y, w: sw, h: 1.66, fill: { color: sec.bg }, line: { color: sec.bd, width: 0.5 }, shadow: mkS() })
-    s.addText(sec.icon + '  ' + sec.label, { x: x + 0.1, y: y + 0.06, w: sw - 0.2, h: 0.3, fontSize: 10, bold: true, color: sec.tc, charSpacing: 0.5 })
-    s.addShape('rect', { x: x + 0.1, y: y + 0.38, w: sw - 0.2, h: 0.03, fill: { color: sec.bd }, line: { type: 'none' } })
-    const secText = sec.text && sec.text.trim() ? sec.text : 'Detailed information about this ' + sec.label.toLowerCase() + ' will be provided here with specific context.'
-    s.addText(secText, { x: x + 0.1, y: y + 0.46, w: sw - 0.2, h: 1.12, fontSize: 11, color: sec.tc, wrap: true, valign: 'top' })
-  })
-}
-
-// ── 11. closing ───────────────────────────────────────────────────────────────
-function renderClosing(s, sl, T) {
-  s.background = { color: T.bg }
-  s.addShape('oval', { x: -3, y: -3, w: 8, h: 8, fill: { color: T.accent, transparency: 90 }, line: { type: 'none' } })
-  s.addShape('oval', { x: 7.5, y: 2.5, w: 6, h: 6, fill: { color: T.accent2, transparency: 90 }, line: { type: 'none' } })
-  s.addShape('rect', { x: 0, y: 0, w: 0.16, h: H, fill: { color: T.accent }, line: { type: 'none' } })
-  s.addText(sl.heading || 'Thank You!', { x: 0.5, y: 0.55, w: 9, h: 1.8, fontSize: 60, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial Black' })
-  s.addShape('rect', { x: 3.0, y: 2.45, w: 4.0, h: 0.07, fill: { color: T.accent }, line: { type: 'none' } })
-  if (sl.subheading) s.addText(sl.subheading, { x: 0.5, y: 2.6, w: 9, h: 0.6, fontSize: 16, color: T.accent, align: 'center', italic: true, wrap: true })
-  if (sl.key_takeaways?.length) {
-    s.addText('KEY TAKEAWAYS', { x: 0.8, y: 3.32, w: 8.4, h: 0.28, fontSize: 9, color: '94A3B8', align: 'center', charSpacing: 1.8, bold: true })
-    sl.key_takeaways.slice(0, 3).forEach((pt, i) => {
-      s.addShape('oval', { x: 0.8, y: 3.68 + i * 0.42, w: 0.25, h: 0.25, fill: { color: T.accent, transparency: 20 }, line: { type: 'none' } })
-      s.addText(pt, { x: 1.14, y: 3.66 + i * 0.42, w: 8.1, h: 0.36, fontSize: 12, color: 'CBD5E1', valign: 'middle', wrap: true })
-    })
-  }
-  footer(s, T)
-}
-
-// ─── MAIN GENERATOR ───────────────────────────────────────────────────────────
-export async function generatePitchPPT(jsonData, fallbackName = 'Presentation') {
+export async function generatePitchPPT(rawText, projectName = 'My Project', template = null) {
   const PptxGenJS = (await import('pptxgenjs')).default
+
+  // Parse JSON
+  const data = parseJSON(rawText)
+
+  // Use selected template colors if provided, otherwise fall back to THEMES
+  const theme = template ? {
+    bg: template.bg,
+    accent: template.accent,
+    accent2: template.accent2,
+    dark: template.dark,
+    card: template.card || template.dark,
+    text: 'FFFFFF',
+    sub: template.accent,
+  } : (THEMES[data.theme] || THEMES.default)
+  const slides = data.slides || []
+
   const prs = new PptxGenJS()
   prs.layout = 'LAYOUT_16x9'
 
-  let data = jsonData
-  if (typeof jsonData === 'string') {
-    // Remove markdown fences
-    let clean = jsonData.replace(/^```json\s*/im, '').replace(/```\s*$/m, '').trim()
-    // Find JSON boundaries
-    const s0 = clean.indexOf('{'), e0 = clean.lastIndexOf('}')
-    if (s0 !== -1 && e0 !== -1) clean = clean.slice(s0, e0 + 1)
-    // Fix trailing commas
-    clean = clean.replace(/,(\s*[}\]])/g, '$1')
-    try { data = JSON.parse(clean) }
-    catch {
-      const m = clean.match(/\{[\s\S]*\}/)
-      if (m) {
-        try { data = JSON.parse(m[0].replace(/,(\s*[}\]])/g, '$1')) }
-        catch { throw new Error('AI returned invalid JSON. Please click Regenerate.') }
-      } else throw new Error('No JSON found in AI response. Please click Regenerate.')
-    }
+  for (const slide of slides) {
+    const s = prs.addSlide()
+    await renderSlide(prs, s, slide, theme, data.title)
   }
 
-  const T = THEMES[data.theme] || THEMES.default
-  const slides = data.slides || []
+  const fileName = (data.title || projectName).replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_')
+  await prs.writeFile({ fileName: `${fileName}_Presentation.pptx` })
+}
 
-  slides.forEach((sl, idx) => {
-    const s = prs.addSlide()
-    const n = idx + 1
-    switch (sl.layout) {
-      case 'title':       renderTitle(s, sl, T); break
-      case 'two_column':  renderTwoColumn(s, sl, T, n); break
-      case 'three_cards': renderThreeCards(s, sl, T, n); break
-      case 'big_stat':    renderBigStat(s, sl, T, n); break
-      case 'comparison':  renderComparison(s, sl, T, n); break
-      case 'timeline':    renderTimeline(s, sl, T, n); break
-      case 'quote_focus': renderQuoteFocus(s, sl, T, n); break
-      case 'checklist':   renderChecklist(s, sl, T, n); break
-      case 'case_study':  renderCaseStudy(s, sl, T, n); break
-      case 'closing':     renderClosing(s, sl, T); break
-      default:            renderBullets(s, sl, T, n); break
-    }
+// ─── SLIDE RENDERER ───────────────────────────────────────────────────────────
+async function renderSlide(prs, s, slide, theme, presTitle) {
+  const layout = slide.layout || 'bullets'
+
+  switch (layout) {
+    case 'title':      return renderTitle(prs, s, slide, theme)
+    case 'bullets':    return renderBullets(prs, s, slide, theme)
+    case 'two_column': return renderTwoColumn(prs, s, slide, theme)
+    case 'three_cards':return renderThreeCards(prs, s, slide, theme)
+    case 'big_stat':   return renderBigStat(prs, s, slide, theme)
+    case 'comparison': return renderComparison(prs, s, slide, theme)
+    case 'timeline':   return renderTimeline(prs, s, slide, theme)
+    case 'quote_focus':return renderQuote(prs, s, slide, theme)
+    case 'checklist':  return renderChecklist(prs, s, slide, theme)
+    case 'case_study': return renderCaseStudy(prs, s, slide, theme)
+    case 'closing':    return renderClosing(prs, s, slide, theme)
+    default:           return renderBullets(prs, s, slide, theme)
+  }
+}
+
+// ── Header helper ─────────────────────────────────────────────────────────────
+function addHeader(prs, s, title, theme, slideNum) {
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: 0, w: W, h: 1.0, fill: { color: theme.bg }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: 0, w: 0.08, h: 1.0, fill: { color: theme.accent }, line: { type: 'none' } })
+  s.addText(title, { x: 0.25, y: 0, w: 8.8, h: 1.0, fontSize: 20, bold: true, color: 'FFFFFF', valign: 'middle', fontFace: 'Arial Black' })
+  if (slideNum) s.addText(String(slideNum), { x: 9.5, y: 0.33, w: 0.35, h: 0.34, fontSize: 10, color: '6B7280', align: 'right' })
+}
+
+// ── TITLE SLIDE ───────────────────────────────────────────────────────────────
+function renderTitle(prs, s, slide, theme) {
+  s.background = { color: theme.bg }
+
+  // Decorative circles
+  s.addShape(prs.shapes.OVAL, { x: 7.0, y: -2.0, w: 5.5, h: 5.5, fill: { color: theme.accent, transparency: 82 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.OVAL, { x: 7.8, y: -0.8, w: 3.0, h: 3.0, fill: { color: theme.accent2, transparency: 78 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.OVAL, { x: -1.0, y: 3.8, w: 2.5, h: 2.5, fill: { color: theme.accent, transparency: 88 }, line: { type: 'none' } })
+
+  // Left accent bar
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: 0, w: 0.1, h: H, fill: { color: theme.accent }, line: { type: 'none' } })
+
+  // Theme pill
+  s.addShape(prs.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 0.45, w: 2.5, h: 0.36, fill: { color: theme.accent, transparency: 20 }, line: { type: 'none' }, rectRadius: 0.08 })
+  s.addText('AI GENERATED PRESENTATION', { x: 0.55, y: 0.45, w: 2.5, h: 0.36, fontSize: 7, bold: true, color: theme.accent, align: 'center', valign: 'middle', margin: 0, charSpacing: 1 })
+
+  // Main heading
+  const heading = slide.heading || 'Presentation'
+  const fSize = heading.length > 40 ? 30 : heading.length > 25 ? 38 : 46
+  s.addText(heading, { x: 0.5, y: 1.0, w: 8.5, h: 2.0, fontSize: fSize, bold: true, color: 'FFFFFF', fontFace: 'Arial Black', align: 'left', valign: 'top', wrap: true })
+
+  // Subheading
+  if (slide.subheading) {
+    s.addText(slide.subheading, { x: 0.5, y: 3.1, w: 7.5, h: 0.65, fontSize: 15, color: theme.sub, align: 'left', italic: true })
+  }
+
+  // Key bullets as pills
+  const bullets = (slide.bullets || []).slice(0, 3)
+  bullets.forEach((b, i) => {
+    s.addShape(prs.shapes.ROUNDED_RECTANGLE, { x: 0.5, y: 3.95 + i * 0.38, w: 6.5, h: 0.3, fill: { color: theme.accent, transparency: 85 }, line: { type: 'none' }, rectRadius: 0.05 })
+    s.addText('• ' + b, { x: 0.65, y: 3.95 + i * 0.38, w: 6.3, h: 0.3, fontSize: 10, color: theme.sub, valign: 'middle' })
   })
 
-  const fName = (data.title || fallbackName).replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_')
-  await prs.writeFile({ fileName: `${fName}_Presentation.pptx` })
+  // Bottom bar
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: H - 0.48, w: W, h: 0.48, fill: { color: theme.dark }, line: { type: 'none' } })
+  s.addText('Powered by HackMate AI', { x: 0.5, y: H - 0.48, w: W - 1, h: 0.48, fontSize: 9, color: theme.accent, align: 'left', valign: 'middle' })
+}
+
+// ── BULLETS SLIDE ─────────────────────────────────────────────────────────────
+function renderBullets(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  if (slide.subheading) {
+    s.addText(slide.subheading, { x: 0.4, y: 1.05, w: 9.2, h: 0.38, fontSize: 12, color: '64748B', italic: true })
+  }
+
+  const bullets = (slide.bullets || []).slice(0, 6)
+  const startY = slide.subheading ? 1.5 : 1.25
+  const itemH = (H - startY - 0.4) / Math.max(bullets.length, 1)
+
+  bullets.forEach((b, i) => {
+    const y = startY + i * itemH
+    // Number circle
+    s.addShape(prs.shapes.OVAL, { x: 0.35, y: y + 0.05, w: 0.38, h: 0.38, fill: { color: theme.accent }, line: { type: 'none' } })
+    s.addText(String(i + 1), { x: 0.35, y: y + 0.05, w: 0.38, h: 0.38, fontSize: 11, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+    // Text
+    s.addText(b, { x: 0.88, y, w: 8.8, h: itemH - 0.06, fontSize: 13, color: '1E293B', valign: 'middle', wrap: true })
+    // Divider
+    if (i < bullets.length - 1) {
+      s.addShape(prs.shapes.RECTANGLE, { x: 0.35, y: y + itemH - 0.04, w: 9.3, h: 0.01, fill: { color: 'E2E8F0' }, line: { type: 'none' } })
+    }
+  })
+}
+
+// ── TWO COLUMN SLIDE ──────────────────────────────────────────────────────────
+function renderTwoColumn(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const colW = 4.45
+
+  // Left column
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.15, w: colW, h: H - 1.5, fill: { color: theme.bg }, line: { type: 'none' }, shadow: { type: 'outer', color: '000000', blur: 8, offset: 2, angle: 135, opacity: 0.12 } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.15, w: colW, h: 0.42, fill: { color: theme.accent }, line: { type: 'none' } })
+  s.addText(slide.left_heading || 'Left', { x: 0.3, y: 1.15, w: colW, h: 0.42, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const leftBullets = (slide.left_bullets || []).slice(0, 5)
+  s.addText(leftBullets.map((b, i) => ({ text: b, options: { bullet: true, breakLine: i < leftBullets.length - 1, color: 'E5E7EB', fontSize: 12, paraSpaceAfter: 5 } })), { x: 0.45, y: 1.65, w: colW - 0.3, h: H - 2.1 })
+
+  // Right column
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.25, y: 1.15, w: colW, h: H - 1.5, fill: { color: theme.card }, line: { type: 'none' }, shadow: { type: 'outer', color: '000000', blur: 8, offset: 2, angle: 135, opacity: 0.12 } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.25, y: 1.15, w: colW, h: 0.42, fill: { color: theme.accent2 }, line: { type: 'none' } })
+  s.addText(slide.right_heading || 'Right', { x: 5.25, y: 1.15, w: colW, h: 0.42, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const rightBullets = (slide.right_bullets || []).slice(0, 5)
+  s.addText(rightBullets.map((b, i) => ({ text: b, options: { bullet: true, breakLine: i < rightBullets.length - 1, color: 'E5E7EB', fontSize: 12, paraSpaceAfter: 5 } })), { x: 5.4, y: 1.65, w: colW - 0.3, h: H - 2.1 })
+}
+
+// ── THREE CARDS SLIDE ─────────────────────────────────────────────────────────
+function renderThreeCards(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const cards = (slide.cards || []).slice(0, 3)
+  const cardW = 2.9
+  const cx = [0.35, 3.55, 6.75]
+
+  cards.forEach((card, i) => {
+    // Card background
+    s.addShape(prs.shapes.RECTANGLE, { x: cx[i], y: 1.15, w: cardW, h: H - 1.5, fill: { color: theme.bg }, line: { type: 'none' }, shadow: { type: 'outer', color: '000000', blur: 10, offset: 3, angle: 135, opacity: 0.15 } })
+    // Top stripe
+    s.addShape(prs.shapes.RECTANGLE, { x: cx[i], y: 1.15, w: cardW, h: 0.08, fill: { color: theme.accent }, line: { type: 'none' } })
+    // Emoji
+    s.addText(card.emoji || '💡', { x: cx[i], y: 1.28, w: cardW, h: 0.65, fontSize: 28, align: 'center' })
+    // Title
+    s.addText(card.title || '', { x: cx[i] + 0.1, y: 1.95, w: cardW - 0.2, h: 0.45, fontSize: 12, bold: true, color: theme.accent, align: 'center' })
+    // Divider
+    s.addShape(prs.shapes.RECTANGLE, { x: cx[i] + 0.6, y: 2.42, w: 1.7, h: 0.05, fill: { color: theme.accent }, line: { type: 'none' } })
+    // Points
+    const points = (card.points || []).slice(0, 4)
+    s.addText(points.map((p, j) => ({ text: p, options: { bullet: true, breakLine: j < points.length - 1, color: 'D1D5DB', fontSize: 11, paraSpaceAfter: 4 } })), { x: cx[i] + 0.15, y: 2.55, w: cardW - 0.3, h: H - 2.95 })
+  })
+}
+
+// ── BIG STAT SLIDE ────────────────────────────────────────────────────────────
+function renderBigStat(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const stats = (slide.stats || []).slice(0, 3)
+  const cx = [0.35, 3.55, 6.75]
+
+  stats.forEach((stat, i) => {
+    s.addShape(prs.shapes.RECTANGLE, { x: cx[i], y: 1.15, w: 2.9, h: 2.1, fill: { color: theme.bg }, line: { type: 'none' }, shadow: { type: 'outer', color: '000000', blur: 10, offset: 3, angle: 135, opacity: 0.15 } })
+    s.addShape(prs.shapes.RECTANGLE, { x: cx[i], y: 1.15, w: 2.9, h: 0.08, fill: { color: theme.accent }, line: { type: 'none' } })
+    s.addText(stat.number || '', { x: cx[i], y: 1.28, w: 2.9, h: 0.9, fontSize: 34, bold: true, color: theme.accent, align: 'center', fontFace: 'Arial Black' })
+    s.addText(stat.label || '', { x: cx[i] + 0.1, y: 2.18, w: 2.7, h: 0.42, fontSize: 11, bold: true, color: 'FFFFFF', align: 'center', wrap: true })
+    if (stat.context) s.addText(stat.context, { x: cx[i] + 0.1, y: 2.6, w: 2.7, h: 0.5, fontSize: 9, color: '9CA3AF', align: 'center', wrap: true })
+  })
+
+  // Supporting bullets
+  const bullets = (slide.bullets || []).slice(0, 4)
+  if (bullets.length) {
+    s.addShape(prs.shapes.RECTANGLE, { x: 0.35, y: 3.4, w: 9.3, h: H - 3.75, fill: { color: theme.card }, line: { type: 'none' } })
+    s.addText(bullets.map((b, i) => ({ text: b, options: { bullet: true, breakLine: i < bullets.length - 1, color: 'E5E7EB', fontSize: 12, paraSpaceAfter: 3 } })), { x: 0.6, y: 3.48, w: 8.9, h: H - 3.88 })
+  }
+}
+
+// ── COMPARISON SLIDE ──────────────────────────────────────────────────────────
+function renderComparison(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const colW = 4.2
+  const leftH = slide.verdict ? H - 2.85 : H - 1.6
+
+  // Left
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.12, w: colW, h: leftH, fill: { color: theme.bg }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.12, w: colW, h: 0.4, fill: { color: theme.accent }, line: { type: 'none' } })
+  s.addText(slide.left_heading || 'Option A', { x: 0.3, y: 1.12, w: colW, h: 0.4, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const lb = (slide.left_bullets || []).slice(0, 5)
+  s.addText(lb.map((b, i) => ({ text: b, options: { bullet: true, breakLine: i < lb.length - 1, color: 'E5E7EB', fontSize: 11.5, paraSpaceAfter: 5 } })), { x: 0.45, y: 1.6, w: colW - 0.3, h: leftH - 0.55 })
+
+  // VS badge
+  s.addShape(prs.shapes.OVAL, { x: 4.6, y: 2.3, w: 0.8, h: 0.8, fill: { color: theme.accent }, line: { type: 'none' } })
+  s.addText('VS', { x: 4.6, y: 2.3, w: 0.8, h: 0.8, fontSize: 11, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+
+  // Right
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.5, y: 1.12, w: colW, h: leftH, fill: { color: theme.card }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.5, y: 1.12, w: colW, h: 0.4, fill: { color: theme.accent2 }, line: { type: 'none' } })
+  s.addText(slide.right_heading || 'Option B', { x: 5.5, y: 1.12, w: colW, h: 0.4, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const rb = (slide.right_bullets || []).slice(0, 5)
+  s.addText(rb.map((b, i) => ({ text: b, options: { bullet: true, breakLine: i < rb.length - 1, color: 'E5E7EB', fontSize: 11.5, paraSpaceAfter: 5 } })), { x: 5.65, y: 1.6, w: colW - 0.3, h: leftH - 0.55 })
+
+  // Verdict
+  if (slide.verdict) {
+    s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: H - 1.45, w: 9.4, h: 0.95, fill: { color: theme.accent, transparency: 15 }, line: { color: theme.accent, pt: 1 } })
+    s.addText('Verdict: ' + slide.verdict, { x: 0.5, y: H - 1.45, w: 9.1, h: 0.95, fontSize: 12, color: 'FFFFFF', valign: 'middle', wrap: true, bold: true })
+  }
+}
+
+// ── TIMELINE SLIDE ────────────────────────────────────────────────────────────
+function renderTimeline(prs, s, slide, theme) {
+  s.background = { color: theme.bg }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const steps = (slide.steps || []).slice(0, 4)
+  const isTwo = steps.length <= 2
+  const colW = isTwo ? 4.0 : 2.1
+  const cols = isTwo ? 2 : Math.min(steps.length, 4)
+  const startX = (W - cols * colW - (cols - 1) * 0.2) / 2
+
+  steps.forEach((step, i) => {
+    const x = startX + i * (colW + 0.2)
+    const y = 1.25
+
+    s.addShape(prs.shapes.RECTANGLE, { x, y, w: colW, h: H - 1.6, fill: { color: i % 2 === 0 ? theme.card : '0F172A' }, line: { type: 'none' }, shadow: { type: 'outer', color: '000000', blur: 10, offset: 3, angle: 135, opacity: 0.2 } })
+    // Number
+    s.addText(step.number || String(i + 1).padStart(2, '0'), { x, y: y + 0.1, w: colW, h: 0.9, fontSize: 36, bold: true, color: theme.accent, align: 'center', fontFace: 'Arial Black' })
+    s.addShape(prs.shapes.RECTANGLE, { x: x + colW * 0.2, y: y + 1.05, w: colW * 0.6, h: 0.05, fill: { color: theme.accent }, line: { type: 'none' } })
+    s.addText(step.title || '', { x: x + 0.08, y: y + 1.18, w: colW - 0.16, h: 0.5, fontSize: 12, bold: true, color: theme.accent, align: 'center', wrap: true })
+    s.addText(step.description || '', { x: x + 0.1, y: y + 1.72, w: colW - 0.2, h: H - 3.45, fontSize: 10.5, color: 'D1D5DB', align: 'center', wrap: true, valign: 'top' })
+
+    // Arrow between steps
+    if (i < steps.length - 1) {
+      s.addText('▶', { x: x + colW, y: y + 1.5, w: 0.22, h: 0.4, fontSize: 12, color: theme.accent, align: 'center' })
+    }
+  })
+}
+
+// ── QUOTE SLIDE ───────────────────────────────────────────────────────────────
+function renderQuote(prs, s, slide, theme) {
+  s.background = { color: theme.bg }
+
+  // Decorative large quote mark
+  s.addShape(prs.shapes.OVAL, { x: -1, y: -1, w: 4, h: 4, fill: { color: theme.accent, transparency: 90 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: 0, w: 0.1, h: H, fill: { color: theme.accent }, line: { type: 'none' } })
+
+  s.addText(slide.heading || 'Key Insight', { x: 0.4, y: 0.25, w: 9.2, h: 0.55, fontSize: 13, bold: true, color: theme.accent })
+
+  // Big quote marks
+  s.addText('❝', { x: 0.4, y: 0.9, w: 1, h: 1, fontSize: 52, color: theme.accent })
+
+  const quote = slide.quote || ''
+  s.addText(quote, { x: 0.5, y: 1.5, w: 9, h: 1.8, fontSize: quote.length > 100 ? 16 : 20, color: 'FFFFFF', italic: true, bold: true, wrap: true, align: 'left', valign: 'top', fontFace: 'Georgia' })
+
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.5, y: 3.45, w: 2.5, h: 0.06, fill: { color: theme.accent }, line: { type: 'none' } })
+  s.addText('— ' + (slide.author || ''), { x: 0.5, y: 3.6, w: 9, h: 0.4, fontSize: 13, color: theme.sub, bold: true })
+
+  if (slide.explanation) {
+    s.addShape(prs.shapes.RECTANGLE, { x: 0.4, y: 4.15, w: 9.2, h: 1.1, fill: { color: theme.card }, line: { type: 'none' } })
+    s.addText(slide.explanation, { x: 0.6, y: 4.15, w: 8.9, h: 1.1, fontSize: 11.5, color: 'D1D5DB', valign: 'middle', wrap: true })
+  }
+}
+
+// ── CHECKLIST SLIDE ───────────────────────────────────────────────────────────
+function renderChecklist(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || '', theme)
+
+  const colW = 4.4
+
+  // Do This (green)
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.12, w: colW, h: H - 1.5, fill: { color: '052E16' }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.12, w: colW, h: 0.42, fill: { color: '16A34A' }, line: { type: 'none' } })
+  s.addText(slide.left_heading || '✅ Do This', { x: 0.3, y: 1.12, w: colW, h: 0.42, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const doItems = (slide.left_items || []).slice(0, 5)
+  doItems.forEach((item, i) => {
+    s.addText('✅', { x: 0.45, y: 1.65 + i * 0.62, w: 0.35, h: 0.45, fontSize: 13, align: 'center', valign: 'middle' })
+    s.addText(item, { x: 0.85, y: 1.62 + i * 0.62, w: 3.7, h: 0.55, fontSize: 11, color: 'D1FAE5', valign: 'middle', wrap: true })
+  })
+
+  // Divider
+  s.addShape(prs.shapes.RECTANGLE, { x: 4.8, y: 1.3, w: 0.4, h: H - 1.7, fill: { color: 'E2E8F0' }, line: { type: 'none' } })
+
+  // Avoid This (red)
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.3, y: 1.12, w: colW, h: H - 1.5, fill: { color: '1C0505' }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 5.3, y: 1.12, w: colW, h: 0.42, fill: { color: 'DC2626' }, line: { type: 'none' } })
+  s.addText(slide.right_heading || '❌ Avoid This', { x: 5.3, y: 1.12, w: colW, h: 0.42, fontSize: 13, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' })
+  const avoidItems = (slide.right_items || []).slice(0, 5)
+  avoidItems.forEach((item, i) => {
+    s.addText('❌', { x: 5.45, y: 1.65 + i * 0.62, w: 0.35, h: 0.45, fontSize: 13, align: 'center', valign: 'middle' })
+    s.addText(item, { x: 5.85, y: 1.62 + i * 0.62, w: 3.7, h: 0.55, fontSize: 11, color: 'FEE2E2', valign: 'middle', wrap: true })
+  })
+}
+
+// ── CASE STUDY SLIDE ──────────────────────────────────────────────────────────
+function renderCaseStudy(prs, s, slide, theme) {
+  s.background = { color: 'F8FAFC' }
+  addHeader(prs, s, slide.heading || 'Case Study', theme)
+
+  // Case name banner
+  s.addShape(prs.shapes.RECTANGLE, { x: 0.3, y: 1.08, w: 9.4, h: 0.5, fill: { color: theme.accent, transparency: 15 }, line: { color: theme.accent, pt: 1 } })
+  s.addText('📌  ' + (slide.case_name || ''), { x: 0.5, y: 1.08, w: 9.2, h: 0.5, fontSize: 13, bold: true, color: theme.bg, valign: 'middle' })
+
+  const sections = [
+    { label: '🔍 Situation', content: slide.situation, color: '1E3A5F', textColor: 'DBEAFE' },
+    { label: '⚡ Action Taken', content: slide.action, color: '1A3320', textColor: 'DCFCE7' },
+    { label: '📈 Result', content: slide.result, color: '3B1A06', textColor: 'FED7AA' },
+    { label: '💡 Key Lesson', content: slide.lesson, color: '2D1458', textColor: 'EDE9FE' },
+  ]
+
+  const sW = 4.55
+  sections.forEach((sec, i) => {
+    const x = i % 2 === 0 ? 0.3 : 5.15
+    const y = i < 2 ? 1.68 : 3.55
+    s.addShape(prs.shapes.RECTANGLE, { x, y, w: sW, h: 1.72, fill: { color: sec.color }, line: { type: 'none' } })
+    s.addText(sec.label, { x: x + 0.12, y: y + 0.08, w: sW - 0.24, h: 0.36, fontSize: 11, bold: true, color: theme.accent })
+    s.addText(sec.content || '', { x: x + 0.12, y: y + 0.46, w: sW - 0.24, h: 1.18, fontSize: 11, color: sec.textColor, wrap: true, valign: 'top' })
+  })
+}
+
+// ── CLOSING SLIDE ─────────────────────────────────────────────────────────────
+function renderClosing(prs, s, slide, theme) {
+  s.background = { color: theme.bg }
+
+  s.addShape(prs.shapes.OVAL, { x: -2, y: -2, w: 6.5, h: 6.5, fill: { color: theme.accent, transparency: 88 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.OVAL, { x: 7.5, y: 2.5, w: 5, h: 5, fill: { color: theme.accent, transparency: 88 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.OVAL, { x: 4.5, y: -1.2, w: 2.8, h: 2.8, fill: { color: theme.accent2, transparency: 90 }, line: { type: 'none' } })
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: 0, w: 0.1, h: H, fill: { color: theme.accent }, line: { type: 'none' } })
+
+  s.addText(slide.heading || 'Thank You!', { x: 0.5, y: 0.7, w: 9, h: 1.5, fontSize: 58, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial Black' })
+  s.addShape(prs.shapes.RECTANGLE, { x: 3.2, y: 2.35, w: 3.6, h: 0.08, fill: { color: theme.accent }, line: { type: 'none' } })
+
+  if (slide.subheading) {
+    s.addText(slide.subheading, { x: 0.5, y: 2.55, w: 9, h: 0.65, fontSize: 16, color: theme.sub, align: 'center', italic: true })
+  }
+
+  const takeaways = (slide.key_takeaways || []).slice(0, 3)
+  if (takeaways.length) {
+    s.addText('Key Takeaways', { x: 0.5, y: 3.32, w: 9, h: 0.38, fontSize: 11, bold: true, color: theme.accent, align: 'center' })
+    takeaways.forEach((t, i) => {
+      const x = 0.5 + i * 3.1
+      s.addShape(prs.shapes.ROUNDED_RECTANGLE, { x, y: 3.72, w: 2.85, h: 1.35, fill: { color: theme.card }, line: { color: theme.accent, pt: 0.5 }, rectRadius: 0.08 })
+      s.addText(t, { x: x + 0.1, y: 3.78, w: 2.65, h: 1.22, fontSize: 10.5, color: 'E5E7EB', align: 'center', valign: 'middle', wrap: true })
+    })
+  }
+
+  s.addShape(prs.shapes.RECTANGLE, { x: 0, y: H - 0.48, w: W, h: 0.48, fill: { color: theme.dark }, line: { type: 'none' } })
+  s.addText('Powered by HackMate AI', { x: 0.5, y: H - 0.48, w: W - 1, h: 0.48, fontSize: 9, color: theme.accent, align: 'center', valign: 'middle' })
 }
 
 // ─── DOWNLOAD BUTTON ──────────────────────────────────────────────────────────
-export default function DownloadPPTButton({ aiOutput, projectName }) {
+export default function DownloadPPTButton({ aiOutput, projectName, template }) {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
@@ -357,22 +432,39 @@ export default function DownloadPPTButton({ aiOutput, projectName }) {
     if (!aiOutput) return
     setLoading(true); setDone(false); setError('')
     try {
-      await generatePitchPPT(aiOutput, projectName || 'Presentation')
+      await generatePitchPPT(aiOutput, projectName || 'My Project', template)
       setDone(true)
       setTimeout(() => setDone(false), 4000)
     } catch (err) {
-      setError(err.message)
+      console.error('PPT error:', err)
+      setError(err.message || 'Failed to generate PPT')
     }
     setLoading(false)
   }
 
   return (
     <div style={{ marginTop: 14 }}>
-      <button onClick={handleDownload} disabled={loading || !aiOutput}
-        style={{ padding: '13px 20px', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center', background: done ? '#16a34a' : loading ? '#6b7280' : 'linear-gradient(135deg, #7c3aed 0%, #e11d48 100%)', transition: 'all 0.2s' }}>
-        {done ? '✅ PPT Downloaded!' : loading ? '⏳ Building your PPT...' : '📥 Download Professional PPT'}
+      <button
+        onClick={handleDownload}
+        disabled={loading || !aiOutput}
+        style={{
+          padding: '13px 20px', color: 'white', border: 'none', borderRadius: 10,
+          fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', justifyContent: 'center',
+          background: done ? '#16a34a' : loading ? '#6b7280' : 'linear-gradient(135deg, #7c3aed 0%, #e11d48 100%)',
+          transition: 'all 0.2s', letterSpacing: '0.3px',
+        }}
+      >
+        {done ? '✅ Professional PPT Downloaded!'
+          : loading ? '⏳ Building your presentation...'
+          : '📥 Download Professional PPT'}
       </button>
-      {error && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>❌ {error}</p>}
+      {error && (
+        <p style={{ fontSize: 12, color: '#ef4444', marginTop: 6, lineHeight: 1.4 }}>
+          ⚠️ {error}
+        </p>
+      )}
     </div>
   )
 }

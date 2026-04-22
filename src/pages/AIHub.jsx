@@ -1,9 +1,13 @@
 import DownloadPPTButton from '../components/PitchPPT'
+import TemplatePicker from '../components/TemplatePicker'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { callAI } from '../lib/ai'
 import { supabase } from '../lib/supabase'
+import { SLIDE_COUNT_OPTIONS } from '../data/pptTemplates'
+
+const SLIDE_COUNTS = [6, 8, 10, 12, 15]
 
 const FEATURES = [
   {
@@ -35,9 +39,9 @@ const FEATURES = [
     placeholder: 'Evaluate my team:\n- Me: ML/AI, Python, TensorFlow, Java\n- Priya: UI/UX, Figma, Adobe XD\n- Rahul: Full Stack, React, Node.js\n- Ananya: Backend, FastAPI, PostgreSQL\n\nProject: AI-based EdTech platform',
   },
   {
-    id: 'pitch', icon: '🎤', title: 'PPT Generator', badge: '✨ AI Design',
-    desc: 'Topic likho — AI topic samjhega, best layout choose karega, deep content bharna aur professional PPT download karo.',
-    how: 'Topic → AI detects field → Chooses layouts → Fills content → Download PPT',
+    id: 'pitch', icon: '🎤', title: 'PPT Generator', badge: '220+ Designs',
+    desc: 'Topic batao, design choose karo — AI professional PPT banayega with perfect content for each slide.',
+    how: 'Topic → Choose design → Slides count → Generate → Download .pptx',
     color: '#e11d48',
     placeholder: 'Diabetes: Causes, Symptoms and Prevention',
   },
@@ -50,168 +54,200 @@ const FEATURES = [
   },
 ]
 
-function buildHubPrompt(profile, users, featureId) {
+function buildPitchPrompt(input, template, slideCount) {
+  const layoutNames = template?.layouts || [
+    'title', 'bullets', 'big_stat', 'two_column',
+    'three_cards', 'timeline', 'checklist', 'closing'
+  ]
+
+  const layoutDefs = {
+    title: '"title": heading, subheading, bullets (3 items)',
+    bullets: '"bullets": heading, subheading, bullets (4-6 items min 15 words each)',
+    big_stat: '"big_stat": heading, stats (3 items: number+label+context), bullets (3 items)',
+    two_column: '"two_column": heading, left_heading, left_bullets, right_heading, right_bullets',
+    three_cards: '"three_cards": heading, cards (3 items: title+emoji+points[3])',
+    timeline: '"timeline": heading, steps (3-4 items: number+title+description)',
+    comparison: '"comparison": heading, left_heading, left_bullets, right_heading, right_bullets, verdict',
+    quote_focus: '"quote_focus": heading, quote, author, explanation',
+    checklist: '"checklist": heading, left_heading, left_items(4), right_heading, right_items(4)',
+    case_study: '"case_study": heading, case_name, situation, action, result, lesson',
+    closing: '"closing": heading, subheading, key_takeaways (3 items)',
+  }
+
+  const available = layoutNames.map(l => layoutDefs[l] || `"${l}"`).join('\n')
+
+  return `You are a world-class presentation designer. Create exactly ${slideCount} slides.
+
+TOPIC: ${input}
+DESIGN: ${template?.name || 'Professional'}
+TOTAL SLIDES: ${slideCount}
+
+USE ONLY THESE LAYOUTS (pick best fit for each slide):
+${available}
+
+RULES:
+- Slide 1 must be "title", last slide must be "closing"
+- Every bullet minimum 15 words, use real stats and examples
+- No double quotes inside strings, no special unicode
+- Mix layouts smartly based on content
+
+Return ONLY valid JSON:
+{
+  "title": "Presentation Title",
+  "theme": "${template?.category || 'general'}",
+  "slides": [
+    { "layout": "title", "heading": "...", "subheading": "...", "bullets": ["...","...","..."] },
+    { "layout": "bullets", "heading": "...", "subheading": "...", "bullets": ["...","...","...","..."] },
+    { "layout": "big_stat", "heading": "...", "stats": [{"number":"...","label":"...","context":"..."},{"number":"...","label":"...","context":"..."},{"number":"...","label":"...","context":"..."}], "bullets": ["...","...","..."] },
+    { "layout": "three_cards", "heading": "...", "cards": [{"title":"...","emoji":"...","points":["...","...","..."]},{"title":"...","emoji":"...","points":["...","...","..."]},{"title":"...","emoji":"...","points":["...","...","..."]}] },
+    { "layout": "timeline", "heading": "...", "steps": [{"number":"01","title":"...","description":"..."},{"number":"02","title":"...","description":"..."},{"number":"03","title":"...","description":"..."}] },
+    { "layout": "closing", "heading": "Thank You", "subheading": "...", "key_takeaways": ["...","...","..."] }
+  ]
+}`
+}
+
+function buildHubPrompt(profile, users, featureId, input, selectedTemplate, slideCount) {
   const userList = users.slice(0, 15).map(u =>
-    `- ${u.full_name} | ${u.role} | Skills: ${u.skills?.join(', ')} | ${u.hackathons_count} hackathons`
+    `• ${u.full_name} | ${u.role} | Skills: ${u.skills?.join(', ')} | ${u.hackathons_count} hackathons | ${u.wins_count} wins`
   ).join('\n')
 
-  const base = `USER: ${profile?.full_name} | ${profile?.role} | Skills: ${profile?.skills?.join(', ')} | College: ${profile?.college}\n\n`
+  const base = `USER PROFILE:
+- Name: ${profile?.full_name} | Role: ${profile?.role}
+- Skills: ${profile?.skills?.join(', ')}
+- Hackathons: ${profile?.hackathons_count} | Wins: ${profile?.wins_count}
+- College: ${profile?.college}
+
+`
+
+  if (featureId === 'pitch') {
+    return buildPitchPrompt(input, selectedTemplate, slideCount)
+  }
 
   const prompts = {
-    'team-builder': base + `You are a hackathon team builder expert. Analyze the project idea and build OPTIMAL team structure.
+    'team-builder': base + `You are a hackathon team builder expert.
+Analyze the user's project idea and build the OPTIMAL team structure.
 
+Output in this exact format:
 ## 🏗️ Optimal Team Structure
-[Team size and overview]
+State the ideal team size and composition overview.
 
 ## 👤 Required Roles
-**[Role]** — [responsibilities]
-- Skills: [list] | Why: [reason] | Level: [beginner/mid/expert]
+For each role:
+**[Role Name]** — [What they'll do]
+- Required skills: [list]
+- Why essential: [1 line reason]
+- Experience needed: [beginner/intermediate/expert]
 
-## ✅ Best Matches from HackMate
+## ✅ Team from HackMate Platform
 ${userList}
-Pick 3-4 best matches with reasons.
 
-## 🎯 Compatibility Score: [X]/100
+Pick the 3-4 BEST matches from above and explain why each one is perfect for this project.
+
+## 🎯 Team Compatibility Score
+Give a score 0-100 and brief explanation.
+
 ## 💡 Pro Tips
-3 specific tips for success.`,
+3 specific tips for this team to succeed.`,
 
-    'teammate-match': base + `You are a teammate matching AI.
+    'teammate-match': base + `You are a teammate matching AI with access to REAL platform users.
 
-AVAILABLE USERS:
+AVAILABLE STUDENTS ON HACKMATE:
 ${userList}
 
-## 🎯 Top 5 Matches
+Analyze who would be the BEST teammates for this user based on their project description.
+
+Output:
+## 🎯 Top 5 Teammate Matches
+
+For each match:
 **[Rank]. [Name]** — [Role]
-- Compatibility: [X]% | Why: [reason] | Skills: [list] | ⭐ Strength: [standout]
+- Compatibility: [X]%
+- Why perfect: [specific reason related to their query]
+- Their key skills: [relevant ones]
+- ⭐ Special strength: [what makes them stand out]
 
-## 🤝 Dream Team (2-3 people)
-[Best combination and why]`,
+## 🤝 Dream Team
+If picking just 2-3 of these people, who would make the strongest team and why?`,
 
-    'strategy': base + `You are a hackathon strategy expert.
+    'strategy': base + `You are a hackathon strategy expert. Create a COMPLETE, actionable execution plan.
 
-## 🎯 MVP Features (Must-Have Only)
-[4-5 core features]
+Output EXACTLY in this format:
+## 🎯 Project MVP (Must-Have Only)
+List 4-5 core features. No nice-to-haves.
 
 ## 👥 Task Division
-[Per member responsibilities]
+For each team member: their specific responsibilities (2-3 tasks each)
 
-## ⏰ Timeline
-**Hours 0-4:** [tasks]
-**Hours 4-8:** [tasks]
-**Hours 8-16:** [tasks]
-**Hours 16-24:** [tasks]
+## ⏰ Hour-by-Hour Timeline
+**Hours 0-4:** [What to do]
+**Hours 4-8:** [What to do]
+**Hours 8-16:** [What to do]
+**Hours 16-24:** [What to do]
+(continue to 36/48 if needed)
 
-## 🛠️ Tech Stack
-Frontend/Backend/Database/AI/Deploy
+## 🛠️ Recommended Tech Stack
+Frontend: [specific tools]
+Backend: [specific tools]
+Database: [specific tools]
+AI/ML: [if applicable]
+Deployment: [where to host]
 
-## ⚠️ Top 3 Risks + Solutions
-## 🏆 What Judges Look For`,
+## ⚠️ Top 3 Risks + How to Avoid
+List the most common failure points with solutions.
 
-    'evaluator': base + `You are a team compatibility evaluator.
+## 🏆 Judging Criteria to Hit
+What judges typically look for and how to nail each point.`,
 
-## 📊 Score: [X]/100
-## ✅ Strengths (3-4)
-## ❌ Skill Gaps (High/Medium/Low impact)
+    'evaluator': base + `You are a team compatibility evaluator for hackathons. Be direct and specific.
+
+Output:
+## 📊 Overall Compatibility Score: [X]/100
+
+## ✅ Team Strengths (Top 3-4)
+Specific strengths based on the skills mentioned.
+
+## ❌ Critical Skill Gaps
+What's missing, how serious each gap is (High/Medium/Low impact).
+
 ## 📈 Success Probability: [X]%
-## 🛠️ Fixes
-## 💡 Top 3 Recommendations`,
+Explain what factors lead to this prediction.
 
-    'pitch': `You are a world-class presentation designer. Create a COMPLETE professional PowerPoint as JSON.
+## 🛠️ Recommended Fixes
+For each gap: specific person who should learn it, or who to add to the team.
 
-TOPIC: As given by user.
+## 💡 Top 3 Recommendations
+Concrete things this team should do before/during the hackathon.`,
 
-CRITICAL RULES:
-1. Detect field: education, business, medical, technology, finance, environment, law, psychology, arts, science
-2. Choose 8-12 slides — EVERY slide must have FULL content, NO empty arrays
-3. VARY layouts across slides — do NOT repeat same layout consecutively
-4. Each bullet point: minimum 12 words, specific, expert-level with real data
-5. Use REAL statistics, REAL names, REAL examples specific to the topic
-6. NEVER use double quotes inside strings — use apostrophes only
-7. Return ONLY raw JSON — no markdown, no backticks, no text before or after
-8. ALL array fields must have content — left_bullets, right_bullets, cards, steps, left_items, right_items, stats MUST be filled
+    'realtime': base + `You are a hackathon crisis manager. The user is in the middle of a hackathon and needs IMMEDIATE help.
 
-LAYOUT RULES — fill ALL fields for chosen layout:
+BE SHORT. BE DIRECT. NO FLUFF.
 
-"title": needs heading, subheading, bullets(3 items)
-"bullets": needs heading, subheading, bullets(4-6 items each 12+ words)
-"two_column": needs heading, left_heading, left_bullets(4 items), right_heading, right_bullets(4 items) — BOTH sides must have content
-"three_cards": needs heading, cards(3 items each with title, emoji, points(3 items each 10+ words))
-"big_stat": needs heading, stats(3 items each with number, label, context), bullets(2-3 items)
-"comparison": needs heading, left_heading, left_bullets(4 items), right_heading, right_bullets(4 items), verdict
-"timeline": needs heading, steps(4 items each with number, title, description(20+ words))
-"quote_focus": needs heading, quote(powerful statement), author, explanation(2-3 sentences)
-"checklist": needs heading, left_heading, left_items(4 items each 10+ words), right_heading, right_items(4 items each 10+ words)
-"case_study": needs heading, case_name, situation(2-3 sentences), action(2-3 sentences), result(with numbers), lesson
-"closing": needs heading, subheading, key_takeaways(3 items)
-
-FULL JSON EXAMPLE — follow this structure exactly:
-{"title":"Topic Title","theme":"education","slides":[
-{"layout":"title","heading":"Full Topic Title","subheading":"Powerful subtitle","bullets":["Key insight one about this topic","Key insight two about this topic","Key insight three about this topic"]},
-{"layout":"bullets","heading":"Introduction","subheading":"Overview of the topic","bullets":["First detailed point with real data and specific information about the topic","Second detailed point explaining core concept with example from real world","Third detailed point covering important aspect with statistics or evidence","Fourth detailed point providing expert insight on the subject matter"]},
-{"layout":"big_stat","heading":"Key Statistics","stats":[{"number":"73%","label":"Relevant metric label","context":"Source: Organization Year"},{"number":"2.5M","label":"Another metric label","context":"Source: Report Year"},{"number":"40%","label":"Third metric label","context":"Source: Study Year"}],"bullets":["Supporting insight one explaining what these numbers mean","Supporting insight two on implications for the topic","Supporting insight three on future trends"]},
-{"layout":"two_column","heading":"Two Perspectives","left_heading":"First Aspect Title","left_bullets":["Detailed point about first aspect with explanation","Second point about first aspect with real example","Third point about first aspect with data or evidence","Fourth point about first aspect with expert view"],"right_heading":"Second Aspect Title","right_bullets":["Detailed point about second aspect with explanation","Second point about second aspect with real example","Third point about second aspect with data or evidence","Fourth point about second aspect with expert view"]},
-{"layout":"three_cards","heading":"Three Key Areas","cards":[{"title":"First Area","emoji":"📊","points":["Detailed point one about first area with context","Detailed point two about first area with example","Detailed point three about first area with impact"]},{"title":"Second Area","emoji":"💡","points":["Detailed point one about second area with context","Detailed point two about second area with example","Detailed point three about second area with impact"]},{"title":"Third Area","emoji":"🚀","points":["Detailed point one about third area with context","Detailed point two about third area with example","Detailed point three about third area with impact"]}]},
-{"layout":"timeline","heading":"Step by Step Process","steps":[{"number":"01","title":"First Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"02","title":"Second Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"03","title":"Third Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"},{"number":"04","title":"Fourth Step","description":"Detailed explanation of what happens in this step, why it matters, and what actions are involved in the process"}]},
-{"layout":"comparison","heading":"Comparison Title","left_heading":"Option A","left_bullets":["First point about Option A with detail","Second point about Option A with evidence","Third point about Option A with example","Fourth point about Option A with impact"],"right_heading":"Option B","right_bullets":["First point about Option B with detail","Second point about Option B with evidence","Third point about Option B with example","Fourth point about Option B with impact"],"verdict":"Clear conclusion about which approach works best and in what circumstances"},
-{"layout":"checklist","heading":"Best Practices","left_heading":"Do This","left_items":["First recommended action with full explanation of why it works","Second recommended action with specific steps to follow","Third recommended action with expected positive outcome","Fourth recommended action with real world evidence"],"right_heading":"Avoid This","right_items":["First common mistake and why it causes problems or negative outcomes","Second mistake with specific consequences to be aware of","Third mistake with better alternative that should be used instead","Fourth mistake with real world example of negative impact"]},
-{"layout":"quote_focus","heading":"Key Insight","quote":"A powerful and memorable statement directly related to this topic that captures the essence","author":"Name, Title, Organization","explanation":"Two to three sentence explanation of why this quote matters deeply, what it reveals about the topic, and how it applies to our understanding today"},
-{"layout":"case_study","heading":"Real World Example","case_name":"Specific Company or Person Name","situation":"Two to three sentence description of the specific challenge or problem faced, including relevant context and background information","action":"Specific steps that were taken to address the situation, including strategies applied and decisions made along the way","result":"Measurable outcomes achieved including specific numbers, percentages, or other quantifiable improvements","lesson":"The key insight this case study teaches us and how it directly applies to the broader topic"},
-{"layout":"closing","heading":"Thank You","subheading":"Memorable and relevant closing tagline","key_takeaways":["The single most important insight from this presentation that audience must remember","Second critical point that reinforces the main message of the presentation","Clear actionable next step or call to action for the audience to take"]}
-]}`,
-
-    'realtime': base + `You are a hackathon crisis manager. SHORT. DIRECT. NO FLUFF.
-
-## ⚡ DO NOW (Next 3 Actions)
-1. [Action] — [X minutes]
-2. [Action] — [X minutes]
-3. [Action] — [X minutes]
+Output:
+## ⚡ DO THESE RIGHT NOW (Next 3 Actions)
+1. [Specific action] — [Time: X minutes]
+2. [Specific action] — [Time: X minutes]
+3. [Specific action] — [Time: X minutes]
 
 ## 🚨 Biggest Risk
-[One line]
+One line: what could kill your chances if ignored.
 
-## ✅ DO NEXT
-[3 actions after above]
+## ✅ DO THIS NEXT (After above)
+Next 3 actions once first batch is done.
 
-## ❌ SKIP NOW
-[2-3 time-wasters]
+## ❌ SKIP THESE (Waste of time right now)
+List 2-3 things that seem important but aren't right now.
 
-## 💪 Quick Win (15 min)
-[One impressive thing]`,
+## 💪 Quick Win
+One thing you can do in 15 minutes that will impress judges.`,
   }
 
   return prompts[featureId] || prompts['strategy']
 }
 
-// Safe JSON parser for PPT output
-function parsePPTJson(text) {
-  if (!text || typeof text !== 'string') return null
-  try {
-    let clean = text.trim()
-    // Remove markdown fences
-    clean = clean.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
-    // Find JSON boundaries
-    const start = clean.indexOf('{')
-    const end = clean.lastIndexOf('}')
-    if (start === -1 || end === -1) return null
-    clean = clean.slice(start, end + 1)
-    // Fix trailing commas
-    clean = clean.replace(/,(\s*[}\]])/g, '$1')
-    const parsed = JSON.parse(clean)
-    if (parsed && parsed.slides && Array.isArray(parsed.slides)) return parsed
-    return null
-  } catch {
-    return null
-  }
-}
-
 function isJsonOutput(text) {
-  return parsePPTJson(text) !== null
-}
-
-const LAYOUT_ICONS = {
-  title: '🎯', bullets: '📝', two_column: '⬜', three_cards: '🃏',
-  big_stat: '📊', comparison: '⚖️', timeline: '⏱️', quote_focus: '💬',
-  checklist: '✅', case_study: '🔍', closing: '🎉', default: '📄'
+  if (!text || typeof text !== 'string') return false
+  const trimmed = text.trim()
+  return trimmed.startsWith('{') && trimmed.includes('"slides"')
 }
 
 export default function AIHub() {
@@ -220,15 +256,25 @@ export default function AIHub() {
   const [activeFeature, setActiveFeature] = useState(null)
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
-  const [parsedPPT, setParsedPPT] = useState(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // PPT specific state
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [slideCount, setSlideCount] = useState(8)
+
   async function run() {
     if (!input.trim() || !activeFeature || loading) return
+
+    // Pitch requires template
+    if (activeFeature.id === 'pitch' && !selectedTemplate) {
+      setShowTemplatePicker(true)
+      return
+    }
+
     setLoading(true)
     setOutput('')
-    setParsedPPT(null)
 
     try {
       const { data: users } = await supabase
@@ -238,21 +284,15 @@ export default function AIHub() {
         .eq('is_open', true)
         .limit(20)
 
-      const systemPrompt = buildHubPrompt(profile, users || [], activeFeature.id)
+      const systemPrompt = buildHubPrompt(profile, users || [], activeFeature.id, input, selectedTemplate, slideCount)
 
       const reply = await callAI({
         system: systemPrompt,
         messages: [{ role: 'user', content: input }],
-        max_tokens: 4000,
+        max_tokens: 6000,
       })
 
       setOutput(reply)
-
-      // Try to parse as PPT JSON
-      if (activeFeature.id === 'pitch') {
-        const parsed = parsePPTJson(reply)
-        setParsedPPT(parsed)
-      }
     } catch (err) {
       setOutput('❌ AI failed to respond. Please check your connection and try again.')
     }
@@ -265,7 +305,39 @@ export default function AIHub() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function renderMarkdown(text) {
+  function renderOutput(text) {
+    if (isJsonOutput(text)) {
+      try {
+        let clean = text.trim()
+        const start = clean.indexOf('{')
+        const end = clean.lastIndexOf('}')
+        if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1)
+        clean = clean.replace(/,\s*([}\]])/g, '$1')
+        const data = JSON.parse(clean)
+        const slides = data.slides || []
+        return `
+          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin-bottom:12px">
+            <p style="font-size:13px;font-weight:700;color:#14532d;margin:0 0 4px">✅ PPT Ready — ${slides.length} slides generated</p>
+            <p style="font-size:12px;color:#166534;margin:0">Theme: ${data.theme || 'default'} | Title: ${data.title || 'Presentation'}</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${slides.map((s, i) => `
+              <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:10px">
+                <div style="width:22px;height:22px;border-radius:50%;background:#7c3aed;color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i + 1}</div>
+                <div>
+                  <p style="font-size:12px;font-weight:600;color:#1e293b;margin:0">${s.heading || 'Slide ' + (i + 1)}</p>
+                  <p style="font-size:10px;color:#64748b;margin:0;text-transform:uppercase;letter-spacing:0.5px">${s.layout}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <p style="font-size:11px;color:#94a3b8;margin-top:10px;text-align:center">Click Download below to get your PowerPoint file</p>
+        `
+      } catch (e) {
+        // fall through to normal render
+      }
+    }
+
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .split('\n').map(line => {
@@ -284,61 +356,20 @@ export default function AIHub() {
       }).join('')
   }
 
-  // PPT Preview component — shows clean slide list, not raw JSON
-  function PPTPreview({ data }) {
-    if (!data) return null
-    const slides = data.slides || []
-    const themeColors = {
-      medical: '#059669', education: '#7c3aed', business: '#0284c7',
-      technology: '#0891b2', finance: '#d97706', environment: '#16a34a',
-      law: '#dc2626', psychology: '#c026d3', arts: '#ea580c', science: '#2563eb',
-      default: '#7c3aed'
-    }
-    const color = themeColors[data.theme] || themeColors.default
-
-    return (
-      <div>
-        {/* Header card */}
-        <div style={{ background: `${color}15`, border: `1px solid ${color}40`, borderRadius: 10, padding: '12px 16px', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#14532d', margin: 0 }}>
-              ✅ {slides.length} slides ready to download
-            </p>
-          </div>
-          <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>
-            <strong>Title:</strong> {data.title} &nbsp;|&nbsp; <strong>Theme:</strong> {data.theme}
-          </p>
-        </div>
-
-        {/* Slide list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {slides.map((slide, i) => (
-            <div key={i} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: color, color: 'white', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {i + 1}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {slide.heading || `Slide ${i + 1}`}
-                </p>
-                <p style={{ fontSize: 10, color: '#94a3b8', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {LAYOUT_ICONS[slide.layout] || '📄'} {slide.layout}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 10, textAlign: 'center' }}>
-          👇 Click Download below to get your PowerPoint file
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="page-body">
+      {/* Template Picker Modal */}
+      {showTemplatePicker && (
+        <TemplatePicker
+          selected={selectedTemplate}
+          onSelect={(template) => {
+            setSelectedTemplate(template)
+            setShowTemplatePicker(false)
+          }}
+          onClose={() => setShowTemplatePicker(false)}
+        />
+      )}
+
       <div className="container" style={{ maxWidth: 1100 }}>
 
         {/* Header */}
@@ -360,7 +391,7 @@ export default function AIHub() {
             {FEATURES.map(f => (
               <button
                 key={f.id}
-                onClick={() => { setActiveFeature(f); setInput(f.placeholder); setOutput(''); setParsedPPT(null) }}
+                onClick={() => { setActiveFeature(f); setInput(f.placeholder); setOutput(''); setSelectedTemplate(null) }}
                 style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '1.4rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', position: 'relative' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${f.color}20` }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
@@ -385,7 +416,7 @@ export default function AIHub() {
         {activeFeature && (
           <div className="fade-up">
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: '1.25rem', gap: 6 }}
-              onClick={() => { setActiveFeature(null); setInput(''); setOutput(''); setParsedPPT(null) }}>
+              onClick={() => { setActiveFeature(null); setInput(''); setOutput(''); setSelectedTemplate(null) }}>
               ← Back to AI Hub
             </button>
 
@@ -405,11 +436,11 @@ export default function AIHub() {
 
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label className="form-label">
-                    {activeFeature.id === 'pitch' ? '🎯 Enter your presentation topic' : 'Describe your situation / project'}
+                    {activeFeature.id === 'pitch' ? '1. Enter your presentation topic' : 'Describe your situation / project'}
                   </label>
                   <textarea
                     className="form-textarea"
-                    style={{ minHeight: 120, fontSize: 14, lineHeight: 1.6 }}
+                    style={{ minHeight: 100, fontSize: 14, lineHeight: 1.6 }}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     placeholder={activeFeature.placeholder}
@@ -417,13 +448,87 @@ export default function AIHub() {
                   <div style={{ fontSize: 11, color: 'var(--text-3)', textAlign: 'right', marginTop: 3 }}>{input.length} chars</div>
                 </div>
 
+                {/* PPT specific options */}
                 {activeFeature.id === 'pitch' && (
-                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 12, color: '#1e40af', lineHeight: 1.5 }}>
-                    💡 <strong>Just write the topic name</strong> — AI will automatically choose the best design, layout, and fill all content. Works for any field: medical, business, education, tech, law, etc.
-                  </div>
+                  <>
+                    {/* Template selector */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label className="form-label">2. Choose design template</label>
+                      <button
+                        onClick={() => setShowTemplatePicker(true)}
+                        style={{
+                          width: '100%', padding: '10px 14px',
+                          border: selectedTemplate ? `2px solid #${selectedTemplate.accent}` : '1.5px dashed var(--border)',
+                          borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                          background: selectedTemplate ? `#${selectedTemplate.bg}` : 'var(--bg-2)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {selectedTemplate ? (
+                          <>
+                            {/* Color preview */}
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              {[selectedTemplate.bg, selectedTemplate.accent, selectedTemplate.dark].map((c, i) => (
+                                <div key={i} style={{ width: 16, height: 16, borderRadius: '50%', background: `#${c}`, border: '1px solid rgba(255,255,255,0.2)' }} />
+                              ))}
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: 'white', margin: 0 }}>{selectedTemplate.name}</p>
+                              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', margin: 0 }}>{selectedTemplate.desc}</p>
+                            </div>
+                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Change →</span>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--purple-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                              🎨
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Browse 220+ designs</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-2)', margin: 0 }}>Medical, Tech, Business, Education & more</p>
+                            </div>
+                            <span style={{ marginLeft: 'auto', fontSize: 18, color: 'var(--text-3)' }}>→</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Slide count */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label className="form-label">3. Number of slides</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {SLIDE_COUNTS.map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setSlideCount(n)}
+                            style={{
+                              flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                              cursor: 'pointer', border: '1.5px solid',
+                              background: slideCount === n ? 'var(--purple)' : 'transparent',
+                              color: slideCount === n ? 'white' : 'var(--text-2)',
+                              borderColor: slideCount === n ? 'var(--purple)' : 'var(--border)',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                        {slideCount} slides selected — AI will pick best layouts for your topic
+                      </p>
+                    </div>
+
+                    {/* Tip */}
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', marginBottom: '1rem', fontSize: 12, color: '#1e40af' }}>
+                      💡 Tip: Choose a template first — AI will fill content matching that design's style
+                    </div>
+                  </>
                 )}
 
-                <div style={{ background: 'var(--purple-light)', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: '1rem', fontSize: 12, color: 'var(--purple)' }}>
+                {/* Profile auto-context */}
+                <div style={{ background: 'var(--purple-light)', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 'var(--r-sm)', padding: '8px 12px', marginBottom: '1rem', fontSize: 12, color: 'var(--purple)' }}>
                   <strong>Auto-included:</strong> {profile?.full_name} | {profile?.role} | {profile?.skills?.slice(0, 3).join(', ')} | {profile?.hackathons_count} hackathons
                 </div>
 
@@ -434,11 +539,18 @@ export default function AIHub() {
                   style={{ gap: 8 }}
                 >
                   {loading
-                    ? <><span className="spin spin-sm" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} />
-                        {activeFeature.id === 'pitch' ? 'AI is designing your PPT...' : 'Generating with AI...'}</>
-                    : <>{activeFeature.icon} Generate {activeFeature.title} →</>
+                    ? <><span className="spin spin-sm" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} /> {activeFeature.id === 'pitch' ? `Generating ${slideCount} slides...` : 'Generating with AI...'}</>
+                    : activeFeature.id === 'pitch' && !selectedTemplate
+                      ? '🎨 Choose Design First →'
+                      : <>{activeFeature.icon} Generate {activeFeature.title} →</>
                   }
                 </button>
+
+                {activeFeature.id === 'pitch' && !selectedTemplate && (
+                  <p style={{ fontSize: 11, color: 'var(--text-3)', textAlign: 'center', marginTop: 6 }}>
+                    You need to choose a design template before generating
+                  </p>
+                )}
               </div>
 
               {/* Output panel */}
@@ -454,52 +566,33 @@ export default function AIHub() {
                           {copied ? '✓ Copied!' : '📋 Copy All'}
                         </button>
                       )}
-                      <button className="btn btn-ghost btn-sm" onClick={() => { setOutput(''); setParsedPPT(null) }}>Clear</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setOutput('')}>Clear</button>
                     </div>
                   </div>
 
-                  <div style={{ maxHeight: 460, overflowY: 'auto', paddingRight: 4 }}>
-                    {/* PITCH: Show clean preview OR error message */}
-                    {activeFeature.id === 'pitch' ? (
-                      parsedPPT ? (
-                        <PPTPreview data={parsedPPT} />
-                      ) : (
-                        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px', marginBottom: 12 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#991b1b', marginBottom: 4 }}>⚠️ JSON parse failed — try Regenerate</p>
-                          <p style={{ fontSize: 12, color: '#7f1d1d', margin: 0 }}>AI response was incomplete. Click Regenerate below.</p>
-                        </div>
-                      )
-                    ) : (
-                      /* OTHER FEATURES: Show markdown */
-                      <div dangerouslySetInnerHTML={{ __html: renderMarkdown(output) }} />
-                    )}
-                  </div>
+                  <div
+                    style={{ maxHeight: 460, overflowY: 'auto', paddingRight: 4 }}
+                    dangerouslySetInnerHTML={{ __html: renderOutput(output) }}
+                  />
 
-                  {/* Action buttons */}
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-                    <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { setOutput(''); setParsedPPT(null); run() }}>
+                    <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { setOutput(''); run() }}>
                       🔄 Regenerate
                     </button>
                     {activeFeature.id !== 'pitch' && (
                       <button className="btn btn-purple-soft btn-sm" style={{ flex: 1 }} onClick={() => navigate('/ai-chat')}>
-                        💬 Ask follow-up →
+                        💬 Ask follow-up in Chat →
                       </button>
                     )}
                   </div>
 
-                  {/* PPT Download — only for pitch */}
-                  {activeFeature.id === 'pitch' && parsedPPT && (
+                  {/* PPT Download */}
+                  {activeFeature?.id === 'pitch' && (
                     <DownloadPPTButton
                       aiOutput={output}
-                      projectName={parsedPPT?.title || input.slice(0, 40) || 'Presentation'}
+                      projectName={input.slice(0, 50)}
+                      template={selectedTemplate}
                     />
-                  )}
-
-                  {/* Show error if pitch but no valid JSON */}
-                  {activeFeature.id === 'pitch' && !parsedPPT && (
-                    <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, fontSize: 12, color: '#991b1b' }}>
-                      ⚠️ Could not parse AI response. Click Regenerate to try again.
-                    </div>
                   )}
                 </div>
               )}
