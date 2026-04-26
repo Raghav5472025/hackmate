@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { supabase } from '../lib/supabase'
 
 const THEMES = [
   { id: 'purple', label: 'Royal', primary: '#7c3aed', bg: '#faf5ff' },
@@ -33,6 +32,8 @@ export default function PPTGenerator() {
 
   const selectedTheme = THEMES.find(t => t.id === theme)
 
+  const PYTHON_API = import.meta.env.VITE_PPT_API || 'https://ppt-server-osau.onrender.com'
+
   // ── Step 1 → 2: Generate slides with AI ──────────────────
   async function handleGenerate() {
     if (!topic.trim()) { setError('Please enter your project topic'); return }
@@ -47,14 +48,13 @@ export default function PPTGenerator() {
 
       setProgress('📝 Generating slide content...')
 
-      const res = await fetch('/api/generate-ppt', {
+      const res = await fetch(`${PYTHON_API}/generate-ppt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: fullTopic,
-          slides: [], // Empty = let AI generate
+          slides: [],
           theme,
-          accessToken: 'GENERATE_ONLY', // Tells API to only generate JSON, not create PPT
           profile: {
             full_name: profile?.full_name,
             role: profile?.role,
@@ -77,40 +77,43 @@ export default function PPTGenerator() {
     }
   }
 
-  // ── Step 3 → 4: Create actual Google Slides ───────────────
+  // ── Step 3 → 4: Create .pptx via Python server ───────────────
   async function handleCreate() {
     setStep(2)
-    setProgress('🔐 Connecting to Google Slides...')
+    setProgress('🐍 python-pptx generating your file...')
     setError('')
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const accessToken = session?.provider_token
+      setProgress('🎨 Applying design and diagrams...')
 
-      if (!accessToken) {
-        throw new Error('Google token expired. Please sign out → sign back in with Google.')
-      }
-
-      setProgress('📊 Creating presentation...')
-
-      const res = await fetch('/api/generate-ppt', {
+      const res = await fetch(`${PYTHON_API}/generate-ppt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic,
           slides,
           theme,
-          accessToken,
           profile: { full_name: profile?.full_name, role: profile?.role },
+          generateOnly: false,
         }),
       })
 
-      setProgress('🎨 Applying design templates...')
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || 'Creation failed')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Generation failed')
+      }
 
-      setResult(data)
-      setProgress('✅ Done!')
+      // Direct .pptx download
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${topic.slice(0, 30).replace(/\s+/g, '_')}.pptx`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      setResult({ downloaded: true, slideCount: slides.length })
+      setProgress('✅ Downloaded!')
       setStep(4)
     } catch (err) {
       setError(err.message)
@@ -422,25 +425,13 @@ export default function PPTGenerator() {
           <div className="card fade-up" style={{ padding: '2.5rem', textAlign: 'center', background: 'linear-gradient(135deg,#f0fdf4,white)', borderColor: 'rgba(22,163,74,0.3)' }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
             <h2 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', marginBottom: 8 }}>
-              Your PPT is live!
+              Downloaded!
             </h2>
             <p style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: '2rem' }}>
-              {result.slideCount} slides created in your Google account.
+              {result.slideCount} slides — check your Downloads folder for the .pptx file
             </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 440, margin: '0 auto 2rem' }}>
-              <a href={result.exportUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-xl" style={{ textDecoration: 'none', gap: 8 }}>
-                ⬇️ Download PowerPoint (.pptx)
-              </a>
-              <a href={result.viewUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg" style={{ textDecoration: 'none', gap: 8 }}>
-                🖥️ View in Google Slides
-              </a>
-              <a href={result.editUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ textDecoration: 'none', color: 'var(--purple)', fontSize: 14 }}>
-                ✏️ Edit in Google Slides →
-              </a>
-            </div>
-
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={handleCreate}>⬇️ Download Again</button>
               <button className="btn btn-secondary btn-sm" onClick={() => { setStep(1); setSlides([]); setResult(null); setTopic('') }}>
                 + New Presentation
               </button>

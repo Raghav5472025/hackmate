@@ -30,8 +30,9 @@ export default function SetupProfile() {
   const set = (k,v) => setForm(f => ({...f,[k]:v}))
 
   function addSkill(e) {
-    if (e.key !== 'Enter' && e.key !== ',') return
-    e.preventDefault()
+    // e can be keyboard event OR null (from button click)
+    if (e && e.key && e.key !== 'Enter' && e.key !== ',') return
+    if (e && e.preventDefault) e.preventDefault()
     const val = skillInput.trim().replace(',','')
     if (val && !form.skills.includes(val)) set('skills',[...form.skills,val])
     setSkillInput('')
@@ -48,11 +49,21 @@ export default function SetupProfile() {
   async function checkUsername(val) {
     const clean = val.toLowerCase().replace(/[^a-z0-9_.]/g,'')
     set('username', clean)
-    if (clean.length < 3) { setUsernameAvail(null); return }
+    setUsernameAvail(null)
+    if (clean.length < 3) { setUsernameChecking(false); return }
     setUsernameChecking(true)
-    const { data } = await supabase.from('profiles').select('id').eq('username', clean).neq('id', user.id)
-    setUsernameChecking(false)
-    setUsernameAvail(!data?.length)
+    try {
+      // user.id se match wale exclude karo (agar already exist karta hai apna)
+      const query = supabase.from('profiles').select('id').eq('username', clean)
+      if (user?.id) query.neq('id', user.id)
+      const { data, error } = await query
+      if (error) throw error
+      setUsernameAvail(!(data?.length > 0))
+    } catch {
+      setUsernameAvail(null)
+    } finally {
+      setUsernameChecking(false)
+    }
   }
 
   async function submit() {
@@ -60,7 +71,6 @@ export default function SetupProfile() {
     if (!form.full_name.trim()) { toast.error('Enter your full name'); return }
     if (!form.username || form.username.length < 3) { toast.error('Username must be at least 3 characters'); return }
     if (usernameAvail === false) { toast.error('Username already taken'); return }
-    if (form.skills.length === 0) { toast.error('Add at least one skill'); return }
     setLoading(true)
 
     let avatar_url = null
@@ -83,10 +93,52 @@ export default function SetupProfile() {
     navigate('/dashboard')
   }
 
+  async function handleSkip() {
+    if (!user) return
+    // Step 0 pe naam mandatory hai
+    if (!form.full_name.trim()) {
+      toast.error('Please enter your name to continue')
+      return
+    }
+    setLoading(true)
+    try {
+      const fallback = user.email.split('@')[0].replace(/[^a-z0-9_]/gi,'_').toLowerCase() + '_' + Date.now().toString().slice(-4)
+      const saveData = {
+        id: user.id,
+        full_name: form.full_name.trim(),
+        college: form.college.trim() || '-',
+        username: (form.username && form.username.length >= 3 && usernameAvail !== false) ? form.username : fallback,
+        avatar_color: form.avatar_color || 'purple',
+        year: form.year || '2nd year',
+        gender: form.gender || 'Prefer not to say',
+        role: (form.role || 'Full Stack Developer').replace(/ Developer| Engineer| Designer| Analyst/,''),
+        is_open: true,
+        skills: form.skills || [],
+        hackathons_count: form.hackathons_count || 0,
+        wins_count: form.wins_count || 0,
+        preferred_team_size: form.preferred_team_size || 4,
+        achievements: form.achievements || '',
+        github_url: form.github_url || '',
+        linkedin_url: form.linkedin_url || '',
+        looking_for: form.looking_for || '',
+      }
+      const { error } = await supabase.from('profiles').upsert(saveData)
+      if (error) throw error
+      if (refreshProfile) await refreshProfile()
+      toast.success('Welcome to HackMate! 🎉 Fill more details anytime from Edit Profile')
+      navigate('/dashboard')
+    } catch(err) {
+      console.error('Skip error:', err)
+      toast.error('Error: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const canNext = () => {
     if (step === 0) return form.full_name.trim() && form.college.trim()
     if (step === 1) return form.username.length >= 3 && usernameAvail !== false
-    if (step === 2) return form.skills.length > 0
+    if (step === 2) return true  // skills optional
     return true
   }
 
@@ -94,6 +146,12 @@ export default function SetupProfile() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem', background: 'var(--bg)' }}>
       <div style={{ width: '100%', maxWidth: 540 }}>
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+            <button type="button" onClick={handleSkip} disabled={loading}
+              style={{ fontSize: 13, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: '4px 12px' }}>
+              Skip setup →
+            </button>
+          </div>
           <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', marginBottom: 4, letterSpacing: '-0.03em' }}>
             Hack<span style={{ color: 'var(--purple)' }}>Mate</span>
           </div>
@@ -194,8 +252,11 @@ export default function SetupProfile() {
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div className="form-group">
-                <label className="form-label">Skills * (Enter or comma to add)</label>
-                <input className="form-input" placeholder="React, Python, Figma..." value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={addSkill} />
+                <label className="form-label">Skills (Enter, comma, or tap Add)</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="form-input" style={{ flex: 1 }} placeholder="React, Python, Figma..." value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={addSkill} />
+                  <button type="button" className="btn btn-primary" style={{ flexShrink: 0, padding: '0 14px' }} onClick={() => addSkill(null)}>+ Add</button>
+                </div>
                 {form.skills.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                     {form.skills.map(s => (

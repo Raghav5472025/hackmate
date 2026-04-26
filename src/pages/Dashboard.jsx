@@ -27,18 +27,6 @@ export default function Dashboard() {
     })
   }, [profile])
 
-  // 🔥 Check Google provider_token (for Google Slides API)
-  const checkToken = async () => {
-    const { data } = await supabase.auth.getSession()
-    console.log("FULL SESSION:", data.session)
-    console.log("TOKEN:", data.session?.provider_token)
-    if (data.session?.provider_token) {
-      alert("✅ Token found! Check browser console for details.")
-    } else {
-      alert("❌ No provider_token found.\n\nFix: Sign out → Sign in again with Google (not email/password).")
-    }
-  }
-
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const modeStyle = { Online:'b-teal', Offline:'b-rose', Hybrid:'b-amber' }
@@ -86,15 +74,7 @@ export default function Dashboard() {
             </div>
             <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18 }}>→</span>
           </div>
-
-          {/* 🔥 Check Token button — AI banner ke just niche */}
-          <button
-            onClick={checkToken}
-            className="btn btn-primary btn-sm"
-            style={{ marginTop: '10px' }}
-          >
-            Check Token
-          </button>
+          {/* Check Token button HATA DIYA — sirf debugging ke liye tha */}
         </div>
 
         {/* Stats */}
@@ -131,8 +111,10 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 290px', gap: '1.5rem', alignItems: 'start' }}>
+        {/* Main grid — FIXED: mobile pe single column */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: '1.5rem' }}>
+
+          {/* Students section */}
           <div>
             <div className="section-head">
               <h2 className="section-title">New teammates</h2>
@@ -146,12 +128,13 @@ export default function Dashboard() {
             }
           </div>
 
+          {/* Hackathons + Quick links — FIXED: proper separation */}
           <div>
             <div className="section-head">
-              <h2 className="section-title" style={{ fontSize: '1.3rem' }}>Upcoming</h2>
+              <h2 className="section-title">Upcoming Hackathons</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/hackathons')}>All →</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,300px),1fr))', gap: 10 }}>
               {hackathons.map(h => (
                 <div key={h.id} className="card" style={{ padding: '1rem' }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4, lineHeight: 1.3 }}>{h.name}</p>
@@ -179,6 +162,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
         </div>
       </div>
     </div>
