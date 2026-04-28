@@ -40,8 +40,8 @@ const FEATURES = [
   },
   {
     id: 'pitch', icon: '🎤', title: 'PPT Generator', badge: '220+ Designs',
-    desc: 'Topic batao, design choose karo — AI professional PPT banayega with perfect content for each slide.',
-    how: 'Topic → Choose design → Slides count → Generate → Download .pptx',
+    desc: 'Topic batao — AI professional PPT banayega. Design optional hai, direct bhi generate kar sakte ho.',
+    how: 'Topic → Direct generate karo · ya design choose karo → Download .pptx',
     color: '#e11d48',
     placeholder: 'Diabetes: Causes, Symptoms and Prevention',
   },
@@ -259,7 +259,6 @@ export default function AIHub() {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // PPT specific state
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [slideCount, setSlideCount] = useState(8)
@@ -267,11 +266,8 @@ export default function AIHub() {
   async function run() {
     if (!input.trim() || !activeFeature || loading) return
 
-    // Pitch requires template
-    if (activeFeature.id === 'pitch' && !selectedTemplate) {
-      setShowTemplatePicker(true)
-      return
-    }
+    // ── FIX 1: Template NOT required anymore — direct generate karo ──
+    // Removed: if (activeFeature.id === 'pitch' && !selectedTemplate) { ... }
 
     setLoading(true)
     setOutput('')
@@ -333,9 +329,7 @@ export default function AIHub() {
           </div>
           <p style="font-size:11px;color:#94a3b8;margin-top:10px;text-align:center">Click Download below to get your PowerPoint file</p>
         `
-      } catch (e) {
-        // fall through to normal render
-      }
+      } catch (e) {}
     }
 
     return text
@@ -358,21 +352,16 @@ export default function AIHub() {
 
   return (
     <div className="page-body">
-      {/* Template Picker Modal */}
       {showTemplatePicker && (
         <TemplatePicker
           selected={selectedTemplate}
-          onSelect={(template) => {
-            setSelectedTemplate(template)
-            setShowTemplatePicker(false)
-          }}
+          onSelect={(template) => { setSelectedTemplate(template); setShowTemplatePicker(false) }}
           onClose={() => setShowTemplatePicker(false)}
         />
       )}
 
       <div className="container" style={{ maxWidth: 1100 }}>
 
-        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--purple-light)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 99, padding: '5px 14px', fontSize: 12, fontWeight: 700, color: 'var(--purple)', marginBottom: 14 }}>
             ✨ AI-Powered Features
@@ -385,12 +374,10 @@ export default function AIHub() {
           </p>
         </div>
 
-        {/* Feature cards grid */}
         {!activeFeature && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,320px),1fr))', gap: 14 }}>
             {FEATURES.map(f => (
-              <button
-                key={f.id}
+              <button key={f.id}
                 onClick={() => { setActiveFeature(f); setInput(f.placeholder); setOutput(''); setSelectedTemplate(null) }}
                 style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '1.4rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', position: 'relative' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${f.color}20` }}
@@ -412,7 +399,6 @@ export default function AIHub() {
           </div>
         )}
 
-        {/* Active feature workspace */}
         {activeFeature && (
           <div className="fade-up">
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: '1.25rem', gap: 6 }}
@@ -422,7 +408,6 @@ export default function AIHub() {
 
             <div style={{ display: 'grid', gridTemplateColumns: output ? '1fr 1fr' : '1fr', gap: '1.25rem', alignItems: 'start' }}>
 
-              {/* Input panel */}
               <div className="card" style={{ padding: '1.5rem', borderColor: activeFeature.color + '30' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: '1.25rem' }}>
                   <div style={{ width: 42, height: 42, borderRadius: 12, background: activeFeature.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
@@ -436,7 +421,7 @@ export default function AIHub() {
 
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <label className="form-label">
-                    {activeFeature.id === 'pitch' ? '1. Enter your presentation topic' : 'Describe your situation / project'}
+                    {activeFeature.id === 'pitch' ? 'Enter your presentation topic' : 'Describe your situation / project'}
                   </label>
                   <textarea
                     className="form-textarea"
@@ -448,26 +433,28 @@ export default function AIHub() {
                   <div style={{ fontSize: 11, color: 'var(--text-3)', textAlign: 'right', marginTop: 3 }}>{input.length} chars</div>
                 </div>
 
-                {/* PPT specific options */}
+                {/* PPT options — template OPTIONAL */}
                 {activeFeature.id === 'pitch' && (
                   <>
-                    {/* Template selector */}
+                    {/* ── FIX 2: Template optional — dashed border toggle ── */}
                     <div style={{ marginBottom: '1rem' }}>
-                      <label className="form-label">2. Choose design template</label>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Design template
+                        <span style={{ fontSize: 10, background: 'var(--bg-2)', color: 'var(--text-3)', padding: '1px 7px', borderRadius: 99, fontWeight: 400 }}>optional</span>
+                      </label>
                       <button
                         onClick={() => setShowTemplatePicker(true)}
                         style={{
                           width: '100%', padding: '10px 14px',
                           border: selectedTemplate ? `2px solid #${selectedTemplate.accent}` : '1.5px dashed var(--border)',
                           borderRadius: 8, cursor: 'pointer', textAlign: 'left',
-                          background: selectedTemplate ? `#${selectedTemplate.bg}` : 'var(--bg-2)',
+                          background: selectedTemplate ? `#${selectedTemplate.bg}` : 'transparent',
                           display: 'flex', alignItems: 'center', gap: 10,
                           transition: 'all 0.2s',
                         }}
                       >
                         {selectedTemplate ? (
                           <>
-                            {/* Color preview */}
                             <div style={{ display: 'flex', gap: 4 }}>
                               {[selectedTemplate.bg, selectedTemplate.accent, selectedTemplate.dark].map((c, i) => (
                                 <div key={i} style={{ width: 16, height: 16, borderRadius: '50%', background: `#${c}`, border: '1px solid rgba(255,255,255,0.2)' }} />
@@ -485,8 +472,8 @@ export default function AIHub() {
                               🎨
                             </div>
                             <div>
-                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Browse 220+ designs</p>
-                              <p style={{ fontSize: 11, color: 'var(--text-2)', margin: 0 }}>Medical, Tech, Business, Education & more</p>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Browse 220+ designs (optional)</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: 0 }}>Skip to auto-generate with default style</p>
                             </div>
                             <span style={{ marginLeft: 'auto', fontSize: 18, color: 'var(--text-3)' }}>→</span>
                           </>
@@ -496,42 +483,31 @@ export default function AIHub() {
 
                     {/* Slide count */}
                     <div style={{ marginBottom: '1rem' }}>
-                      <label className="form-label">3. Number of slides</label>
+                      <label className="form-label">Number of slides</label>
                       <div style={{ display: 'flex', gap: 8 }}>
                         {SLIDE_COUNTS.map(n => (
-                          <button
-                            key={n}
-                            onClick={() => setSlideCount(n)}
-                            style={{
-                              flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                              cursor: 'pointer', border: '1.5px solid',
-                              background: slideCount === n ? 'var(--purple)' : 'transparent',
-                              color: slideCount === n ? 'white' : 'var(--text-2)',
-                              borderColor: slideCount === n ? 'var(--purple)' : 'var(--border)',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            {n}
-                          </button>
+                          <button key={n} onClick={() => setSlideCount(n)} style={{
+                            flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                            cursor: 'pointer', border: '1.5px solid',
+                            background: slideCount === n ? 'var(--purple)' : 'transparent',
+                            color: slideCount === n ? 'white' : 'var(--text-2)',
+                            borderColor: slideCount === n ? 'var(--purple)' : 'var(--border)',
+                            transition: 'all 0.15s',
+                          }}>{n}</button>
                         ))}
                       </div>
                       <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-                        {slideCount} slides selected — AI will pick best layouts for your topic
+                        {slideCount} slides — AI will pick best layouts for your topic
                       </p>
-                    </div>
-
-                    {/* Tip */}
-                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', marginBottom: '1rem', fontSize: 12, color: '#1e40af' }}>
-                      💡 Tip: Choose a template first — AI will fill content matching that design's style
                     </div>
                   </>
                 )}
 
-                {/* Profile auto-context */}
                 <div style={{ background: 'var(--purple-light)', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 'var(--r-sm)', padding: '8px 12px', marginBottom: '1rem', fontSize: 12, color: 'var(--purple)' }}>
                   <strong>Auto-included:</strong> {profile?.full_name} | {profile?.role} | {profile?.skills?.slice(0, 3).join(', ')} | {profile?.hackathons_count} hackathons
                 </div>
 
+                {/* ── FIX 3: Button always shows Generate — no "Choose Design First" ── */}
                 <button
                   className="btn btn-primary btn-block btn-lg"
                   onClick={run}
@@ -539,21 +515,15 @@ export default function AIHub() {
                   style={{ gap: 8 }}
                 >
                   {loading
-                    ? <><span className="spin spin-sm" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} /> {activeFeature.id === 'pitch' ? `Generating ${slideCount} slides...` : 'Generating with AI...'}</>
-                    : activeFeature.id === 'pitch' && !selectedTemplate
-                      ? '🎨 Choose Design First →'
-                      : <>{activeFeature.icon} Generate {activeFeature.title} →</>
+                    ? <><span className="spin spin-sm" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} />
+                        {activeFeature.id === 'pitch' ? `Generating ${slideCount} slides...` : 'Generating with AI...'}
+                      </>
+                    : <>{activeFeature.icon} Generate {activeFeature.title} →</>
                   }
                 </button>
-
-                {activeFeature.id === 'pitch' && !selectedTemplate && (
-                  <p style={{ fontSize: 11, color: 'var(--text-3)', textAlign: 'center', marginTop: 6 }}>
-                    You need to choose a design template before generating
-                  </p>
-                )}
+                {/* ── FIX 3: "You need to choose template" warning HATAYA ── */}
               </div>
 
-              {/* Output panel */}
               {output && (
                 <div className="card fade-up" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -586,7 +556,6 @@ export default function AIHub() {
                     )}
                   </div>
 
-                  {/* PPT Download */}
                   {activeFeature?.id === 'pitch' && (
                     <DownloadPPTButton
                       aiOutput={output}
@@ -600,7 +569,6 @@ export default function AIHub() {
           </div>
         )}
 
-        {/* Bottom links */}
         {!activeFeature && (
           <div style={{ marginTop: '2rem', textAlign: 'center', padding: '1.75rem', background: 'linear-gradient(135deg,#faf5ff,white)', borderRadius: 'var(--r-xl)', border: '1px solid rgba(124,58,237,0.15)' }}>
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Need quick help? Use the floating AI chat →</p>
